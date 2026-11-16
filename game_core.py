@@ -153,6 +153,43 @@ LOOT_ITEMS = {
     "guard_baton": {"name": "Security Chief Balaji's Stun Baton", "sell_price": 8500},
     "it_usb": {"name": "IT Head Venkat's Backdoor USB", "sell_price": 18000},
     "director_cigar": {"name": "Board Director Sundar's Cuban Cigar", "sell_price": 24000},
+
+    # Expanded wildlife drops
+    "snow_fox_pelt": {"name": "Snow Fox Pelt", "sell_price": 1750},
+    "moon_bear_fur": {"name": "Moon Bear Fur", "sell_price": 3900},
+    "golden_jackal_tooth": {"name": "Golden Jackal Tooth", "sell_price": 2600},
+    "clouded_leopard_spot": {"name": "Clouded Leopard Mark", "sell_price": 4400},
+    "peacock_plume": {"name": "Iridescent Peacock Plume", "sell_price": 2200},
+    "silver_otter_whisker": {"name": "Silver Otter Whisker", "sell_price": 1900},
+    "tiger_beetle_shell": {"name": "Titan Tiger Beetle Shell", "sell_price": 1650},
+    "giant_panda_token": {"name": "Giant Panda Keepsake", "sell_price": 5200},
+    "wild_boar_tusk": {"name": "Wild Boar Tusk", "sell_price": 1450},
+    "falcon_feather": {"name": "Falcon Feather", "sell_price": 2400},
+    "river_dolphin_charm": {"name": "River Dolphin Charm", "sell_price": 3500},
+    "blue_whale_song": {"name": "Blue Whale Song Crystal", "sell_price": 7200},
+    "swordfish_bill": {"name": "Swordfish Bill", "sell_price": 3100},
+    "koi_scale": {"name": "Golden Koi Scale", "sell_price": 2700},
+    "sea_turtle_tag": {"name": "Sea Turtle Tag", "sell_price": 1800},
+    "flying_fish_fin": {"name": "Flying Fish Fin", "sell_price": 1250},
+    "lanternfish_glow": {"name": "Lanternfish Glow Pearl", "sell_price": 2900},
+    "stingray_silk": {"name": "Stingray Silk", "sell_price": 3300},
+    "river_crab_claw": {"name": "River Crab Claw", "sell_price": 1150},
+    "ice_fish_scale": {"name": "Icefish Scale", "sell_price": 2050},
+    "fossil_trilobite": {"name": "Trilobite Fossil", "sell_price": 3600},
+    "geode_crystal": {"name": "Rainbow Geode Crystal", "sell_price": 4100},
+    "ancient_coin": {"name": "Ancient Buried Coin", "sell_price": 5000},
+    "glow_worm": {"name": "Glow Worm Jar", "sell_price": 980},
+    "cave_salamander": {"name": "Cave Salamander Scale", "sell_price": 1750},
+    "crystal_beetle": {"name": "Crystal Beetle Shell", "sell_price": 2300},
+    "buried_robot": {"name": "Vintage Buried Robot Part", "sell_price": 5600},
+    "mole_crown": {"name": "Mole King's Tiny Crown", "sell_price": 3200},
+    "amber_frog": {"name": "Amber Tree Frog Fossil", "sell_price": 2950},
+    "clerk_glasses": {"name": "Clerk's Reading Glasses", "sell_price": 1800},
+    "clerk_lanyard": {"name": "Senior Clerk Lanyard", "sell_price": 4200},
+    "clerk_calculator": {"name": "INVINGOPPA's Calculator", "sell_price": 7600},
+    "clerk_stamp": {"name": "Executive Approval Stamp", "sell_price": 9800},
+    "clerk_trophy": {"name": "Employee of the Century Trophy", "sell_price": 15000},
+
 }
 
 JOBS = {
@@ -281,6 +318,61 @@ BANK_CLERKS = [
     {"tier": "FINAL BOSS", "name": "👑 THE BANK CLERK: INVINGOPPA", "reward": 85000, "risk": 0.74, "drop": "invingoppa_ledger", "weight": 2},
 ]
 
+
+# Additional non-graphic wildlife encounters for the web edition.
+HUNT_BOSSES.extend([
+    {"name": "🦊 Arctic Snow Fox", "reward": 4600, "risk": 0.22, "drop": "snow_fox_pelt"},
+    {"name": "🐻 Himalayan Moon Bear", "reward": 8200, "risk": 0.34, "drop": "moon_bear_fur"},
+    {"name": "🐆 Clouded Leopard", "reward": 9100, "risk": 0.36, "drop": "clouded_leopard_spot"},
+    {"name": "🦚 Royal Peacock", "reward": 3900, "risk": 0.16, "drop": "peacock_plume"},
+    {"name": "🦦 Silver River Otter", "reward": 4300, "risk": 0.19, "drop": "silver_otter_whisker"},
+    {"name": "🪲 Titan Tiger Beetle", "reward": 3500, "risk": 0.14, "drop": "tiger_beetle_shell"},
+    {"name": "🐼 Bamboo Forest Panda", "reward": 10500, "risk": 0.10, "drop": "giant_panda_token"},
+    {"name": "🐗 Wild Boar Champion", "reward": 5100, "risk": 0.27, "drop": "wild_boar_tusk"},
+    {"name": "🦅 Golden Falcon", "reward": 6200, "risk": 0.23, "drop": "falcon_feather"},
+    {"name": "🐺 Midnight Jackal", "reward": 5700, "risk": 0.25, "drop": "golden_jackal_tooth"},
+    {"name": "🦌 Silver Antler Deer", "reward": 4900, "risk": 0.18, "drop": "silver_otter_whisker"},
+    {"name": "🦡 Burrowing Badger", "reward": 3700, "risk": 0.17, "drop": "wild_boar_tusk"},
+])
+FISH_BOSSES.extend([
+    {"name": "🐬 River Dolphin", "reward": 5600, "risk": 0.16, "drop": "river_dolphin_charm"},
+    {"name": "🐋 Blue Whale Calf", "reward": 14000, "risk": 0.28, "drop": "blue_whale_song"},
+    {"name": "🐟 Swordfish Sprinter", "reward": 6300, "risk": 0.25, "drop": "swordfish_bill"},
+    {"name": "🐠 Golden Koi", "reward": 4700, "risk": 0.12, "drop": "koi_scale"},
+    {"name": "🐢 Ancient Sea Turtle", "reward": 4100, "risk": 0.10, "drop": "sea_turtle_tag"},
+    {"name": "🐟 Flying Fish", "reward": 2900, "risk": 0.11, "drop": "flying_fish_fin"},
+    {"name": "🏮 Deep-Sea Lanternfish", "reward": 5900, "risk": 0.21, "drop": "lanternfish_glow"},
+    {"name": "🪽 Giant Stingray", "reward": 6800, "risk": 0.27, "drop": "stingray_silk"},
+    {"name": "🦀 Moonlit River Crab", "reward": 2500, "risk": 0.12, "drop": "river_crab_claw"},
+    {"name": "🧊 Antarctic Icefish", "reward": 4500, "risk": 0.19, "drop": "ice_fish_scale"},
+    {"name": "🦑 Glass Squid", "reward": 7900, "risk": 0.29, "drop": "vortex_shard"},
+    {"name": "🐡 Spotted Pufferfish", "reward": 3600, "risk": 0.17, "drop": "puffer_toxin"},
+])
+DIG_ANIMALS.extend([
+    {"name": "🪲 Crystal Cave Beetle", "drop": "crystal_beetle"},
+    {"name": "🦎 Blind Cave Salamander", "drop": "cave_salamander"},
+    {"name": "🪱 Glowing Glow Worm Colony", "drop": "glow_worm"},
+    {"name": "🐸 Amber Tree Frog Fossil", "drop": "amber_frog"},
+    {"name": "🦫 Buried Beaver Cache", "drop": "ancient_coin"},
+    {"name": "🦴 Trilobite Fossil Bed", "drop": "fossil_trilobite"},
+    {"name": "💎 Rainbow Geode Cluster", "drop": "geode_crystal"},
+    {"name": "🤖 Forgotten Toy Robot", "drop": "buried_robot"},
+    {"name": "🐹 Mole King's Hideout", "drop": "mole_crown"},
+    {"name": "🦀 Ancient Buried Crab", "drop": "river_crab_claw"},
+    {"name": "🪙 Lost Merchant's Coin Purse", "drop": "ancient_coin"},
+    {"name": "🦟 Giant Amber Insect", "drop": "amber_mosquito"},
+])
+
+# Expanded clerk cast: these are fictional NPC encounters in the in-game bank event.
+BANK_CLERKS.extend([
+    {"tier": "Front Desk", "name": "📎 Receptionist Meena", "reward": 6200, "risk": 0.24, "drop": "clerk_glasses", "weight": 14},
+    {"tier": "Accounts", "name": "🧮 Accounts Clerk Arjun", "reward": 11000, "risk": 0.34, "drop": "clerk_calculator", "weight": 12},
+    {"tier": "Compliance", "name": "📋 Compliance Officer Divya", "reward": 18000, "risk": 0.45, "drop": "clerk_stamp", "weight": 9},
+    {"tier": "Regional Office", "name": "🗂️ Regional Clerk Prakash", "reward": 23000, "risk": 0.49, "drop": "clerk_lanyard", "weight": 8},
+    {"tier": "Executive Floor", "name": "🏅 Executive Clerk Nandhini", "reward": 36000, "risk": 0.57, "drop": "clerk_trophy", "weight": 5},
+    {"tier": "INVINGOPPA's Office", "name": "👑 Deputy Chief Clerk Invingoppa Jr.", "reward": 65000, "risk": 0.68, "drop": "clerk_stamp", "weight": 2},
+])
+
 DEATH_MESSAGES = [
     "Soothe moodra dunde!",
     "DVD paiya saavu da!",
@@ -328,10 +420,9 @@ def load_all_data():
 
 
 def save_all_data(data):
-    os.makedirs(os.path.dirname(DATA_FILE) or ".", exist_ok=True)
-
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
+
 
 def hash_password(password, salt=None):
     if not salt: salt = secrets.token_hex(16)
@@ -356,6 +447,10 @@ def get_default_room_profile(preset_name):
         "level": 1,
         "xp": 0,
         "job": "moderator",
+        "last_work": time.time(),
+        "work_reminder_sent": False,
+        "mailbox": [],
+        "crypto_units": 0.0,
         "dead": False,
         "prison_end": 0,
         "last_daily": 0,
