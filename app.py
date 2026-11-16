@@ -753,6 +753,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("SCAM_CALL — Play a fictional comedy call encounter")
         say("CRYPTO — Check the fictional market; CRYPTO BUY <units> / CRYPTO SELL <units>")
         say("TAX_FRAUD — Play the fictional tax-office risk challenge")
+        say("CRIME — High-risk fictional crime run: big payout, mugging, or character death")
         say("ROB <username> — Attempt a City robbery")
         say("HEIST START — Start a group heist")
         say("HEIST CONTRIBUTE <amount> — Add to the heist pool")
@@ -776,7 +777,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("")
         say("🎒 ITEMS & INVENTORY")
         say("BAG / INV / INVENTORY — View items, loot and collectibles")
-        say("SHOP — Browse the Fresh 4 Today shop")
+        say("SHOP — Browse the categorized store: Defense, Tools, Upgrades, Lootboxes, Collectibles")
         say("BUY <item> — Purchase an item")
         say("SELL <loot> [quantity] — Sell collected loot")
         say("")
@@ -801,9 +802,26 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say(", ".join(items + loot) if items or loot else "Your inventory is empty.")
 
     elif cmd == "shop":
-        say("🛒 FRESH 4 TODAY — SHOP")
-        for key, item in core.SHOP_ITEMS.items():
-            say(f"{key} — {item['name']} · {item['price']:,} coins · {item['category']}")
+        say("╔══════════════════════════════════════════════════════╗")
+        say("                 🛒 FRESH 4 TODAY — SHOP")
+        say("╚══════════════════════════════════════════════════════╝")
+        grouped_items = {}
+        for item_key, shop_item in core.SHOP_ITEMS.items():
+            grouped_items.setdefault(shop_item.get("category", "Miscellaneous"), []).append((item_key, shop_item))
+        category_order = ["Defense", "Tool", "Upgrade", "Lootbox", "Collectible"]
+        for category in category_order + [c for c in grouped_items if c not in category_order]:
+            entries = grouped_items.get(category, [])
+            if not entries:
+                continue
+            say("")
+            say(f"━━━ {category.upper()} ━━━")
+            for item_key, shop_item in entries:
+                say(f"▸ {shop_item['name']}  —  {shop_item['price']:,} coins")
+                say(f"  BUY KEY: {item_key}")
+                if shop_item.get("desc"):
+                    say(f"  {shop_item['desc']}")
+        say("")
+        say("Use BUY <item_key> to purchase. Your BAG shows what you own.")
 
     elif cmd == "buy" and args:
         key = args[0].lower()
@@ -1028,6 +1046,43 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             say(f"Current price: {price:,} FamPay per SCAMCOIN")
             say(f"Your holdings: {float(profile.get('crypto_units', 0)):g} SCAMCOIN · Estimated value: {value:,} FamPay")
             say("Use `crypto buy <units>` or `crypto sell <units>`. Market prices fluctuate every 15 minutes.")
+
+    elif cmd == "crime":
+        if profile.get("dead"):
+            say("You are currently out of action. Use `revive` first.")
+        else:
+            now = time.time()
+            cooldown = max(0, int(profile.get("crime_cooldown", 0) - now))
+            if cooldown:
+                say(f"The City is watching you. Try another fictional crime run in {cooldown}s.")
+            else:
+                profile["crime_cooldown"] = now + 45
+                outcome = random.random()
+                if outcome < 0.58:
+                    reward = random.randint(8000, 65000)
+                    profile["fampay"] += reward
+                    core.add_xp(profile, 90)
+                    say(f"💰 BIG SCORE! Your fictional crime run paid {reward:,} coins and 90 XP.")
+                elif outcome < 0.86:
+                    lost = min(profile["fampay"], max(500, int(profile["fampay"] * random.uniform(0.20, 0.60))))
+                    if profile["inventory"].get("padlock", 0) > 0:
+                        profile["inventory"]["padlock"] -= 1
+                        say("🥷 You got mugged on the way out, but your Padlock broke and protected your wallet!")
+                    else:
+                        profile["fampay"] -= lost
+                        say(f"🥷 YOU GOT MUGGED! You lost {lost:,} coins. The run went very badly.")
+                else:
+                    if profile["inventory"].get("shield", 0) > 0:
+                        profile["inventory"]["shield"] -= 1
+                        say("🛡️ Your Shield shattered and saved you from the worst outcome. You escaped with no reward.")
+                    elif profile["inventory"].get("reviver", 0) > 0:
+                        profile["inventory"]["reviver"] -= 1
+                        say("✨ Your Reviver Token activated. You were revived immediately, but the crime run failed.")
+                    else:
+                        profile["dead"] = True
+                        profile["fampay"] = 0
+                        say("💀 YOUR CHARACTER DIED! Your wallet was lost. Type `revive` to return to the game.")
+                commit()
 
     elif cmd == "tax_fraud":
         # Purely fictional random event; deliberately contains no real tax-evasion advice.
