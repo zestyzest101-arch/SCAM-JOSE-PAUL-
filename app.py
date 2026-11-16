@@ -114,6 +114,7 @@ st.markdown(
     }
     .muted-note { color:#9eacc1; font-size:.88rem; }
     .character-name { font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:1.04rem; }
+    .st-key-command_form label, .st-key-command_form input { font-size: .88rem !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -254,8 +255,29 @@ def get_current(data, username):
 
 
 def add_log(message):
+    """Keep compatibility with any older plain-text command log entries."""
     st.session_state.setdefault("command_log", [])
     st.session_state.command_log.append(str(message))
+
+
+def add_command_result(command, lines, profile=None):
+    """Store one complete interactive-console command/result block."""
+    st.session_state.setdefault("command_log", [])
+    entry = {"command": str(command), "lines": [str(line) for line in lines], "kind": "normal"}
+    if command.strip().lower().split()[:1] in (["bal"], ["balance"]):
+        entry["kind"] = "balance"
+        if profile is not None:
+            job_name = core.JOBS.get(profile.get("job"), {}).get("name", profile.get("job", "None"))
+            entry["balance"] = {
+                "wallet": profile.get("fampay", 0),
+                "bank": profile.get("bank", 0),
+                "bank_max": profile.get("bank_max", 0),
+                "level": profile.get("level", 0),
+                "xp": profile.get("xp", 0),
+                "xp_next": profile.get("level", 0) * 300,
+                "job": job_name,
+            }
+    st.session_state.command_log.append(entry)
 
 
 def add_chat_message(room, username, message, kind="user"):
@@ -871,8 +893,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
     else:
         say(f"Unknown command: {cmd}. Type `help`.")
 
-    for line in out:
-        add_log(line)
+    add_command_result(raw_command, out, profile)
     # Robbery and heist activity is also announced in the City's persistent chat.
     if cmd in ("rob", "heist") and out:
         add_chat_message(room, "CITY SYSTEM", f"{username}: {' '.join(out)}", kind="system")
@@ -980,16 +1001,54 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
             st.markdown("### 🎮 Command Console")
             st.markdown("<div class='muted-note'>Your command history stays above the input. Type <b>help</b> to see the command directory.</div>", unsafe_allow_html=True)
 
-            # The full session history is rendered in a scrollable area; it is
-            # deliberately not truncated to the last 18 or 40 lines.
+            # Larger scrollable Python-style console. Each command is grouped
+            # with its own prompt and formatted result instead of loose lines.
             log_lines = st.session_state.get("command_log", [])
-            with st.container(height=360, border=True):
+            with st.container(height=540, border=True):
                 if log_lines:
-                    for line in log_lines:
-                        st.markdown(
-                            f"<div style='padding:7px 3px;border-bottom:1px solid rgba(148,163,184,.10)'>{html.escape(str(line))}</div>",
-                            unsafe_allow_html=True,
-                        )
+                    for item in log_lines:
+                        if isinstance(item, dict):
+                            command_text = html.escape(str(item.get("command", "")))
+                            st.markdown(
+                                f"<div style='font-family:ui-monospace,monospace;font-size:.82rem;color:#8fb7ff;padding:8px 10px 3px'>&gt;&gt;&gt; {command_text}</div>",
+                                unsafe_allow_html=True,
+                            )
+                            if item.get("kind") == "balance" and item.get("balance"):
+                                b = item["balance"]
+                                rows = [
+                                    ("FamPay Balance", f"🪙 {b['wallet']:,}"),
+                                    ("FamPay Account", f"🏦 {b['bank']:,} / {b['bank_max']:,}"),
+                                    ("Level", str(b["level"])),
+                                    ("XP", f"{b['xp']:,} / {b['xp_next']:,}"),
+                                    ("Career", str(b["job"])),
+                                ]
+                                cells = "".join(
+                                    f"<div style='display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid rgba(148,163,184,.12)'><span style='color:#aab8ce'>{html.escape(label)}</span><b style='color:#f4f7ff;text-align:right'>{html.escape(value)}</b></div>"
+                                    for label, value in rows
+                                )
+                                st.markdown(
+                                    f"<div style='margin:5px 8px 13px;padding:12px 15px;border:1px solid rgba(113,151,218,.30);border-radius:12px;background:linear-gradient(145deg,rgba(24,39,62,.92),rgba(10,17,29,.96));font-size:.80rem'><div style='font-weight:800;letter-spacing:1.2px;color:#9dbcf0;font-size:.72rem;margin-bottom:7px'>ACCOUNT SUMMARY</div>{cells}</div>",
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                # Every command gets the same polished result-card treatment
+                                # as BAL: a clear heading, framed panel, and neatly spaced rows.
+                                output_lines = item.get("lines", [])
+                                rendered = "".join(
+                                    f"<div style='padding:5px 0;border-bottom:1px solid rgba(148,163,184,.10)'>{html.escape(str(line))}</div>"
+                                    for line in output_lines
+                                )
+                                if not rendered:
+                                    rendered = "<div style='padding:5px 0;color:#93a2b8'>No output.</div>"
+                                st.markdown(
+                                    f"<div style='margin:5px 8px 13px;padding:12px 15px;border:1px solid rgba(113,151,218,.30);border-radius:12px;background:linear-gradient(145deg,rgba(24,39,62,.92),rgba(10,17,29,.96));font-family:ui-monospace,monospace;font-size:.78rem;line-height:1.58;color:#e5edf9'><div style='font-family:DM Sans,sans-serif;font-weight:800;letter-spacing:1.2px;color:#9dbcf0;font-size:.72rem;margin-bottom:7px'>COMMAND OUTPUT</div>{rendered}</div>",
+                                    unsafe_allow_html=True,
+                                )
+                        else:
+                            st.markdown(
+                                f"<div style='padding:4px 10px;font-family:ui-monospace,monospace;font-size:.78rem;color:#dce6f5'>{html.escape(str(item))}</div>",
+                                unsafe_allow_html=True,
+                            )
                 else:
                     st.caption("Your command results will appear here. Start with `help`.")
 
@@ -1026,13 +1085,29 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
             st.write(f"**Inventory items:** {sum(profile['inventory'].values())}")
             st.write(f"**Collectibles / loot:** {sum(profile['loot'].values())}")
             st.divider()
-            st.markdown("### 👥 Players in this City")
+            st.markdown("### 👥 People in this City")
             for member in room.get("members", []):
                 if member not in data["users"] or data["users"][member].get("current_room") != room_code:
                     continue
+                member_profile = get_profile(data, member, room_code)
+                member_char_id = member_profile.get("character_id")
+                char_index = next((i for i, item in enumerate(CHARACTERS) if item[0] == member_char_id), None)
+                char_label = CHARACTERS[char_index][1] if char_index is not None else "Character pending"
                 last_active = data["users"].get(member, {}).get("last_active", 0)
-                status = "🟢 Online" if time.time() - last_active < 120 else "⚪ Offline"
-                st.write(f"{status}  **{member}**" + (" · Host" if member == room.get("host") else ""))
+                is_online = time.time() - last_active < 120
+                avatar_col, details_col = st.columns([0.75, 2.5], vertical_alignment="center")
+                with avatar_col:
+                    if char_index is not None:
+                        avatar_path = BASE / "assets" / "characters" / f"character_{char_index + 1:02d}.jpg"
+                        if avatar_path.exists():
+                            st.image(str(avatar_path), width=62)
+                        else:
+                            st.markdown("<div style='width:62px;height:62px;border-radius:12px;background:#24344d'></div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<div style='width:62px;height:62px;border-radius:12px;background:#24344d'></div>", unsafe_allow_html=True)
+                with details_col:
+                    st.markdown(f"<div style='font-size:.91rem;font-weight:750;line-height:1.25'>{html.escape(str(member))}{' <span style="color:#e7bd72;font-size:.68rem">HOST</span>' if member == room.get('host') else ''}</div><div style='font-size:.70rem;color:#9eacc1;margin-top:3px'>{html.escape(char_label)}</div><div style='font-size:.68rem;color:{'#69d69b' if is_online else '#a0a9b8'};margin-top:3px'>{'● Online' if is_online else '● Offline'}</div>", unsafe_allow_html=True)
+                st.markdown("<div style='height:7px'></div>", unsafe_allow_html=True)
 
     with chat_tab:
         st.markdown("### 💬 City Chat")
