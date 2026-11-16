@@ -125,20 +125,31 @@ st.markdown(
 # INVINGOPPA remains character 13 (character_13.jpg).
 CHARACTERS = [
     ("professor", "THE PROFESSOR", "Has 47 unfinished degrees and still asks Google how to boil water.", "Looking suspiciously intelligent."),
-    ("heartbreaker", "THE HEARTBREAKER", "Joined the City to make money. Left with three friendship requests.", "Emotional damage."),
+    ("heartbreaker", "THE RIZZLER", "Will get the buzz to pull thy huzz.", "+15% coins from BEG. The charm is apparently tax-deductible."),
     ("uncle_jose", "UNCLE JOSE", "Retired businessman. Wanted in 4 neighbourhood WhatsApp groups.", "Unsolicited life advice."),
-    ("sleeping_ceo", "THE SLEEPING CEO", "Runs a multinational corporation entirely from his bed.", "Maximum productivity, minimum movement."),
-    ("og", "THE OG", "Been here since the tutorial. Still hasn't figured out the tutorial.", "Veteran confidence."),
+    ("sleeping_ceo", "THE NAKED MAFIA LEADER", "Will send tingles down ur wingles.", "+15% coins from successful CRIME runs. The City fears the vibes."),
+    ("og", "SAM DA BABY", "4 year old bebeh.", "10% discount on SHOP purchases. Tiny CEO, enormous savings."),
     ("mystery_man", "THE MYSTERY MAN", "Nobody knows who he is. Not even his own profile picture.", "Classified information."),
     ("ancient_one", "THE ANCIENT ONE", "His account is older than the City's economy.", "Historical knowledge (questionable)."),
     ("hello_kitty_boss", "HELLO KITTY FINAL BOSS", "Cute appearance. The financial crimes department has opened a file.", "Unexpected chaos."),
     ("npc", "THE NPC", "Stares into the distance. Somehow owns a mansion.", "Random encounters."),
     ("cat_whisperer", "THE CAT WHISPERER", "Doesn't trust humans. Has a suspiciously large fish collection.", "Animal connections."),
-    ("confused_citizen", "THE CONFUSED CITIZEN", "Entered Perambur looking for the supermarket. Has been missing for 3 days.", "Getting lost."),
+    ("confused_citizen", "Paul mogger", "Only mews and eats gum.", "+15% XP from activities. Mewing is apparently productive."),
     ("security_guard", "THE SECURITY GUARD", "Looks like he knows something. Refuses to elaborate.", "Intimidating presence."),
     ("invingoppa", "INVINGOPPA", "The bank clerk has arrived. Your loan application was rejected before you even opened it.", "Financial intimidation."),
-    ("drip_lord", "THE DRIP LORD", "Spends 90% of his salary on accessories. 10% on rent.", "Fashion over finances."),
+    ("drip_lord", "Chikko chezhiyanin magan", "Anna sowwww.", "+15% DAILY reward. The anna economy is thriving."),
 ]
+
+
+def character_id(profile):
+    return profile.get("character_id")
+
+
+def award_xp(profile, amount):
+    # Paul Mogger's character perk: 15% extra XP, rounded down.
+    if character_id(profile) == "confused_citizen":
+        amount = int(amount * 1.15)
+    core.add_xp(profile, amount)
 
 
 # -------------------------- DATA / SAVE --------------------------
@@ -830,13 +841,16 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             say("Item not found. Type `shop`.")
         elif key == "sister_fahaana":
             say("This collectible cannot be purchased in this build.")
-        elif profile["fampay"] < item["price"]:
-            say("Not enough FamPay Balance.")
         else:
-            profile["fampay"] -= item["price"]
-            profile["inventory"][key] = profile["inventory"].get(key, 0) + 1
-            say(f"Purchased {item['name']} for {item['price']:,} coins.")
-            commit()
+            price = int(item["price"] * 0.90) if character_id(profile) == "og" else item["price"]
+            if profile["fampay"] < price:
+                say("Not enough FamPay Balance.")
+            else:
+                profile["fampay"] -= price
+                profile["inventory"][key] = profile["inventory"].get(key, 0) + 1
+                discount_note = " (10% Sam da Baby discount)" if character_id(profile) == "og" else ""
+                say(f"Purchased {item['name']} for {price:,} coins{discount_note}.")
+                commit()
 
     elif cmd == "sell" and args:
         key = args[0].lower()
@@ -911,7 +925,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
                 profile["fampay"] += pay
                 profile["last_work"] = time.time()
                 profile["work_reminder_sent"] = False
-                core.add_xp(profile, 50)
+                award_xp(profile, 50)
                 add_mail(profile, "SHIFT COMPLETED", f"Your shift as {job['name']} is complete. You earned {pay:,} coins and 50 XP. Your next work deadline is in 24 hours.", "payroll")
                 say(f"Completed your shift as {job['name']}. Earned {pay:,} coins and 50 XP. Your 24-hour job timer has reset.")
                 commit()
@@ -997,7 +1011,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         if random.random() < 0.55:
             reward = random.randint(700, 2600)
             profile["fampay"] += reward
-            core.add_xp(profile, 35)
+            award_xp(profile, 35)
             say(f"📞 SCAM CALL SIMULATION — {target} spotted the obvious joke and tipped your comedy hotline {reward:,} coins. +35 XP.")
         else:
             fine = min(profile["fampay"], random.randint(250, 900))
@@ -1060,8 +1074,10 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
                 outcome = random.random()
                 if outcome < 0.58:
                     reward = random.randint(8000, 65000)
+                    if character_id(profile) == "sleeping_ceo":
+                        reward = int(reward * 1.15)
                     profile["fampay"] += reward
-                    core.add_xp(profile, 90)
+                    award_xp(profile, 90)
                     say(f"💰 BIG SCORE! Your fictional crime run paid {reward:,} coins and 90 XP.")
                 elif outcome < 0.86:
                     lost = min(profile["fampay"], max(500, int(profile["fampay"] * random.uniform(0.20, 0.60))))
@@ -1090,7 +1106,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         if random.random() < 0.35:
             bonus = random.randint(1800, 5200)
             profile["fampay"] += bonus
-            core.add_xp(profile, 45)
+            award_xp(profile, 45)
             say(f"The pixel auditor approved your imaginary paperwork. Bonus: {bonus:,} coins +45 XP.")
         else:
             fine = min(profile["fampay"], random.randint(900, 3000))
@@ -1112,7 +1128,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             drop = clerk["drop"]
             profile["fampay"] += reward
             profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
-            core.add_xp(profile, 100)
+            award_xp(profile, 100)
             say(f"The encounter was cleared! +{reward:,} coins, +100 XP, and {core.LOOT_ITEMS[drop]['name']}.")
         else:
             fine = min(profile["fampay"], max(500, clerk["reward"] // 5))
@@ -1127,6 +1143,8 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             say(f"Daily reward already claimed. Try again in about {remaining // 3600}h {(remaining % 3600) // 60}m.")
         else:
             reward = 1000 + profile.get("daily_streak", 0) * 100
+            if character_id(profile) == "drip_lord":
+                reward = int(reward * 1.15)
             profile["fampay"] += reward
             profile["last_daily"] = now
             profile["daily_streak"] = profile.get("daily_streak", 0) + 1
@@ -1138,8 +1156,10 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         if random.random() < 0.3:
             say("Nobody gave you anything this time.")
         else:
+            if character_id(profile) == "heartbreaker":
+                reward = int(reward * 1.15)
             profile["fampay"] += reward
-            core.add_xp(profile, 20)
+            award_xp(profile, 20)
             say(f"Someone helped you out: +{reward:,} coins and 20 XP.")
             commit()
 
@@ -1158,7 +1178,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
             reward = random.randint(250, 1200)
             profile["fampay"] += reward
-            core.add_xp(profile, 55)
+            award_xp(profile, 55)
             say(f"{encounter['name']}: collected {core.LOOT_ITEMS[drop]['name']} and earned {reward:,} coins + 55 XP.")
             commit()
 
@@ -1486,6 +1506,7 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
                     st.image(str(image_path), width=190)
                 st.markdown(f"<div class='character-name'>{CHARACTERS[char_index][1]}</div>", unsafe_allow_html=True)
                 st.caption(CHARACTERS[char_index][2])
+                st.caption(f"Speciality: {CHARACTERS[char_index][3]}")
             st.divider()
             unread_mail = sum(not mail.get("read") for mail in profile.get("mailbox", []))
             st.markdown(f"### 📬 Mailbox · {unread_mail} unread")
