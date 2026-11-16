@@ -222,6 +222,12 @@ JOBS = {
     "meme_lord": {"name": "Supreme Meme Lord", "pay": (20000, 35000), "req_level": 15, "desc": "Control viral trends worldwide."},
     "casino_pit_boss": {"name": "Casino Pit Boss", "pay": (25000, 45000), "req_level": 16, "desc": "Ensure the house always wins."},
     "galactic_smuggler": {"name": "Galactic Smuggler", "pay": (30000, 50000), "req_level": 18, "desc": "Smuggle rare Pepe files across galaxies."},
+    "education_minister": {"name": "Education Minister", "pay": (18000, 28000), "req_level": 12, "desc": "Make school policy decisions and somehow please everyone."},
+    "femboy_minister": {"name": "Femboy Minister", "pay": (14000, 24000), "req_level": 10, "desc": "Run the City's most unexpectedly popular fashion and culture department."},
+    "weather_minister": {"name": "Weather Minister", "pay": (12000, 22000), "req_level": 9, "desc": "Announce sunshine, rain, and extremely questionable forecasts."},
+    "childrens_welfare_minister": {"name": "Childrens Welfare Minister", "pay": (16000, 26000), "req_level": 11, "desc": "Fund parks, libraries, and community programmes across the City."},
+    "vanilla_minister": {"name": "Vanilla Minister", "pay": (10000, 19000), "req_level": 8, "desc": "Protect the sacred vanilla economy and settle flavour disputes."},
+    "dj_minister": {"name": "DJ Minister", "pay": (15000, 25000), "req_level": 10, "desc": "Keep the City moving with carefully curated playlists."},
     "time_traveller": {"name": "Time Travelling Trader", "pay": (45000, 75000), "req_level": 20, "desc": "Buy stocks yesterday and sell them last week."},
     "matrix_architect": {"name": "Matrix Architect", "pay": (70000, 100000), "req_level": 25, "desc": "Rewrite the simulation parameters."},
 }
