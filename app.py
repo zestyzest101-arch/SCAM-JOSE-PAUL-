@@ -1,3 +1,723 @@
+import contextlib
+import io
+import html
+import json
+import os
+import random
+import secrets
+import time
+from pathlib import Path
+
+import streamlit as st
+import game_core as core
+
+# ============================================================
+# SCAM JOSE PAUL — STREAMLIT WEB APP
+# Replace the existing app.py with this file.
+# Keep game_core.py and assets/characters/ unchanged.
+# ============================================================
+
+BASE = Path(__file__).parent
+DATA_DIR = BASE / "data"
+DATA_FILE = DATA_DIR / "scam_jose_paul_save.json"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+core.DATA_FILE = str(DATA_FILE)
+
+MAX_PLAYERS = 14
+GLOBAL_ROOM = "GLOBAL_HUB"
+CITY_PRESETS = list(core.CITIES.keys())
+
+st.set_page_config(
+    page_title="SCAM JOSE PAUL",
+    page_icon="🪙",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+    :root { color-scheme: dark; }
+    .stApp {
+        background:
+            radial-gradient(circle at 12% 0%, rgba(57,91,150,.30), transparent 32%),
+            radial-gradient(circle at 90% 12%, rgba(113,63,153,.18), transparent 27%),
+            linear-gradient(145deg, #0a0d14 0%, #101827 48%, #0b101a 100%);
+        color: #f4f6fb;
+        font-family: 'DM Sans', sans-serif;
+    }
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #111a2a 0%, #0c111b 100%);
+        border-right: 1px solid rgba(148,163,184,.13);
+    }
+    .block-container { padding-top: 1.55rem; padding-bottom: 3rem; max-width: 1500px; }
+    h1, h2, h3 { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -.4px; }
+    h1 { font-weight: 700 !important; }
+    [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(28,40,61,.96), rgba(18,27,43,.96));
+        border: 1px solid rgba(148,163,184,.17);
+        padding: 18px 18px 14px;
+        border-radius: 17px;
+        min-height: 112px;
+        box-shadow: 0 8px 26px rgba(0,0,0,.13);
+    }
+    [data-testid="stMetricLabel"] { color: #aebbd0 !important; font-weight: 600; }
+    [data-testid="stMetricValue"] { color: #ffffff !important; font-family: 'Space Grotesk', sans-serif; }
+    .stButton > button, .stFormSubmitButton > button {
+        min-height: 45px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,.22);
+        font-weight: 700;
+        transition: .15s ease;
+    }
+    .stButton > button:hover, .stFormSubmitButton > button:hover {
+        border-color: #8aa9e8;
+        transform: translateY(-1px);
+    }
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+        min-height: 48px;
+        border-radius: 11px;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: rgba(148,163,184,.19) !important;
+        border-radius: 16px !important;
+        background: rgba(19,29,46,.58);
+    }
+    .hero-card {
+        padding: 22px 24px;
+        border: 1px solid rgba(125,155,210,.24);
+        border-radius: 19px;
+        background: linear-gradient(120deg, rgba(36,55,86,.82), rgba(24,31,51,.78));
+        margin-bottom: 18px;
+    }
+    .hero-kicker { color:#a9bddf; font-size: .78rem; font-weight:800; letter-spacing:2px; }
+    .hero-title { font-family:'Space Grotesk',sans-serif; font-size: clamp(1.8rem,4vw,2.7rem); font-weight:800; line-height:1.08; margin-top:5px; }
+    .hero-sub { color:#b6c2d5; margin-top:8px; }
+    .command-shell {
+        padding: 19px;
+        border: 1px solid rgba(125,155,210,.24);
+        border-radius: 18px;
+        background: linear-gradient(145deg, rgba(22,34,54,.96), rgba(14,22,36,.96));
+        box-shadow: 0 12px 35px rgba(0,0,0,.16);
+    }
+    .command-output {
+        padding: 15px 17px;
+        border-radius: 13px;
+        background: rgba(5,10,18,.72);
+        border: 1px solid rgba(148,163,184,.16);
+        color: #e5edf9;
+        line-height: 1.75;
+        min-height: 145px;
+        overflow-wrap: anywhere;
+    }
+    .muted-note { color:#9eacc1; font-size:.88rem; }
+    .character-name { font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:1.04rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# -------------------------- CHARACTERS --------------------------
+# INVINGOPPA remains character 13 (character_13.jpg).
+CHARACTERS = [
+    ("professor", "THE PROFESSOR", "Has 47 unfinished degrees and still asks Google how to boil water.", "Looking suspiciously intelligent."),
+    ("heartbreaker", "THE HEARTBREAKER", "Joined the City to make money. Left with three friendship requests.", "Emotional damage."),
+    ("uncle_jose", "UNCLE JOSE", "Retired businessman. Wanted in 4 neighbourhood WhatsApp groups.", "Unsolicited life advice."),
+    ("sleeping_ceo", "THE SLEEPING CEO", "Runs a multinational corporation entirely from his bed.", "Maximum productivity, minimum movement."),
+    ("og", "THE OG", "Been here since the tutorial. Still hasn't figured out the tutorial.", "Veteran confidence."),
+    ("mystery_man", "THE MYSTERY MAN", "Nobody knows who he is. Not even his own profile picture.", "Classified information."),
+    ("ancient_one", "THE ANCIENT ONE", "His account is older than the City's economy.", "Historical knowledge (questionable)."),
+    ("hello_kitty_boss", "HELLO KITTY FINAL BOSS", "Cute appearance. The financial crimes department has opened a file.", "Unexpected chaos."),
+    ("npc", "THE NPC", "Stares into the distance. Somehow owns a mansion.", "Random encounters."),
+    ("cat_whisperer", "THE CAT WHISPERER", "Doesn't trust humans. Has a suspiciously large fish collection.", "Animal connections."),
+    ("confused_citizen", "THE CONFUSED CITIZEN", "Entered Perambur looking for the supermarket. Has been missing for 3 days.", "Getting lost."),
+    ("security_guard", "THE SECURITY GUARD", "Looks like he knows something. Refuses to elaborate.", "Intimidating presence."),
+    ("invingoppa", "INVINGOPPA", "The bank clerk has arrived. Your loan application was rejected before you even opened it.", "Financial intimidation."),
+    ("drip_lord", "THE DRIP LORD", "Spends 90% of his salary on accessories. 10% on rent.", "Fashion over finances."),
+]
+
+
+# -------------------------- DATA / SAVE --------------------------
+def save(data):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    temp_path = str(DATA_FILE) + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=2, ensure_ascii=False)
+    os.replace(temp_path, DATA_FILE)
+
+
+def room_defaults(room):
+    room.setdefault("host", "SYSTEM")
+    room.setdefault("name", "Global Hub Egmore")
+    room.setdefault("preset", "egmore")
+    room.setdefault("is_public", False)
+    room.setdefault("members", [])
+    room.setdefault("heist", {"active": False, "contributions": {}})
+    room.setdefault("started", True)
+    room.setdefault("character_claims", {})
+    # Keep the first recorded owner of a character. Claims are deliberately
+    # not removed when a member leaves the City.
+    if not isinstance(room["character_claims"], dict):
+        room["character_claims"] = {}
+    return room
+
+
+def load_data():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data = core.load_all_data()
+    data.setdefault("users", {})
+    data.setdefault("rooms", {})
+
+    if GLOBAL_ROOM not in data["rooms"]:
+        data["rooms"][GLOBAL_ROOM] = {
+            "host": "SYSTEM",
+            "name": "Global Hub Egmore",
+            "preset": "egmore",
+            "is_public": True,
+            "members": [],
+            "heist": {"active": False, "contributions": {}},
+            "started": True,
+            "character_claims": {},
+        }
+
+    for code, room in list(data["rooms"].items()):
+        room_defaults(room)
+        if room.get("preset") not in core.CITIES:
+            room["preset"] = "egmore"
+
+    # Migrate older single-player saves into the Global Hub.
+    legacy_names = [
+        key for key, value in list(data.items())
+        if isinstance(value, dict) and "wallet" in value and key not in ("users", "rooms")
+    ]
+    for name in legacy_names:
+        old = data.pop(name)
+        if name not in data["users"]:
+            data["users"][name] = {
+                "password_hash": core.hash_password(secrets.token_urlsafe(18)),
+                "current_room": GLOBAL_ROOM,
+                "room_profiles": {},
+                "last_active": 0,
+            }
+        profile = core.get_default_room_profile("egmore")
+        for key, value in old.items():
+            if key == "wallet":
+                profile["fampay"] = value
+            elif key in profile:
+                profile[key] = value
+        data["users"][name].setdefault("room_profiles", {})[GLOBAL_ROOM] = profile
+        data["users"][name]["current_room"] = GLOBAL_ROOM
+        if name not in data["rooms"][GLOBAL_ROOM]["members"]:
+            data["rooms"][GLOBAL_ROOM]["members"].append(name)
+
+    # Give old accounts a safe default room pointer and ensure profile maps exist.
+    for name, account in data["users"].items():
+        account.setdefault("room_profiles", {})
+        account.setdefault("last_active", 0)
+        if "current_room" not in account:
+            account["current_room"] = GLOBAL_ROOM
+        code = account.get("current_room")
+        if code and code not in data["rooms"]:
+            account["current_room"] = None
+
+    # Migrate existing character choices into permanent room claims.
+    for code, room in data["rooms"].items():
+        claims = room["character_claims"]
+        for member in room["members"]:
+            account = data["users"].get(member, {})
+            profile = account.get("room_profiles", {}).get(code, {})
+            char_id = profile.get("character_id")
+            if char_id in {item[0] for item in CHARACTERS} and char_id not in claims:
+                claims[char_id] = member
+                profile["character_locked"] = True
+
+    return data
+
+
+def get_profile(data, username, room_code):
+    return core.get_user_room_profile(data, username, room_code)
+
+
+def get_current(data, username):
+    account = data["users"][username]
+    code = account.get("current_room")
+    if not code or code not in data["rooms"]:
+        return None, None, None, None, None
+    room = data["rooms"][code]
+    profile = get_profile(data, username, code)
+    city_cfg = core.CITIES.get(room.get("preset", "egmore"), core.CITIES["egmore"])
+    return account, room, profile, code, city_cfg
+
+
+def add_log(message):
+    st.session_state.setdefault("command_log", [])
+    st.session_state.command_log.append(str(message))
+    st.session_state.command_log = st.session_state.command_log[-40:]
+
+
+def make_room_code(data):
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    code = "".join(random.choices(alphabet, k=6))
+    while code in data["rooms"]:
+        code = "".join(random.choices(alphabet, k=6))
+    return code
+
+
+def remove_member(data, username, room_code):
+    room = data["rooms"].get(room_code)
+    if room and username in room.get("members", []):
+        room["members"].remove(username)
+        # Permanent character claims intentionally remain in room data.
+        if room.get("host") == username and room.get("members"):
+            room["host"] = room["members"][0]
+
+
+def move_user(data, username, destination_code):
+    account = data["users"][username]
+    old_code = account.get("current_room")
+    if old_code and old_code in data["rooms"] and old_code != destination_code:
+        remove_member(data, username, old_code)
+    account["current_room"] = destination_code
+    if destination_code:
+        room = data["rooms"][destination_code]
+        if username not in room["members"]:
+            room["members"].append(username)
+        get_profile(data, username, destination_code)
+
+
+def create_city(data, username, city_name, preset):
+    code = make_room_code(data)
+    name = city_name.strip()[:35] or f"{username}'s City"
+    data["rooms"][code] = {
+        "host": username,
+        "name": name,
+        "preset": preset if preset in core.CITIES else "egmore",
+        "is_public": False,
+        "members": [],
+        "heist": {"active": False, "contributions": {}},
+        "started": False,
+        "character_claims": {},
+    }
+    move_user(data, username, code)
+    save(data)
+    return code
+
+
+def join_city(data, username, code):
+    code = code.strip().upper()
+    room = data["rooms"].get(code)
+    if not room:
+        return False, "That City code was not found."
+    if username not in room["members"] and len(room["members"]) >= MAX_PLAYERS:
+        return False, f"That City is full ({MAX_PLAYERS}/{MAX_PLAYERS})."
+    move_user(data, username, code)
+    save(data)
+    return True, f"Joined {room.get('name', 'the City')} ({code})."
+
+
+def character_picker(data, username, room_code, profile):
+    room = data["rooms"][room_code]
+    claims = room.setdefault("character_claims", {})
+    current_id = profile.get("character_id")
+    owner = claims.get(current_id) if current_id else None
+
+    # If an old duplicate choice conflicts with a previously recorded claim,
+    # require this account to choose a genuinely available character.
+    if current_id and owner not in (None, username):
+        profile.pop("character_id", None)
+        profile.pop("character_name", None)
+        profile["character_locked"] = False
+        current_id = None
+
+    # Restore a valid existing choice as a permanent claim.
+    if current_id and owner in (None, username):
+        claims[current_id] = username
+        profile["character_locked"] = True
+        save(data)
+        return True
+
+    # If this account already owns a permanent claim in this City, restore it
+    # rather than allowing the account to claim a second character.
+    previous_claim = next((key for key, owner_name in claims.items() if owner_name == username), None)
+    if previous_claim:
+        previous_character = next((item for item in CHARACTERS if item[0] == previous_claim), None)
+        if previous_character:
+            profile["character_id"] = previous_character[0]
+            profile["character_name"] = previous_character[1]
+            profile["character_locked"] = True
+            save(data)
+            return True
+
+    st.markdown("## 🎭 Choose your character")
+    st.caption("Choose carefully. A character is reserved permanently in this City, even if its player leaves.")
+    st.caption(f"{len(claims)} of {len(CHARACTERS)} characters have already been claimed in this City.")
+    cols = st.columns(3)
+    for index, (key, name, description, speciality) in enumerate(CHARACTERS):
+        claim_owner = claims.get(key)
+        available = claim_owner is None or claim_owner == username
+        with cols[index % 3]:
+            with st.container(border=True):
+                image_path = BASE / "assets" / "characters" / f"character_{index + 1:02d}.jpg"
+                if image_path.exists():
+                    st.image(str(image_path), use_container_width=True)
+                st.markdown(f"**{name}**")
+                st.caption(description)
+                st.caption(f"Speciality: {speciality}")
+                if not available:
+                    st.button(
+                        f"🔒 Taken by {claim_owner}",
+                        key=f"taken_{room_code}_{key}",
+                        disabled=True,
+                        use_container_width=True,
+                    )
+                else:
+                    if st.button(
+                        "Select character",
+                        key=f"pick_{room_code}_{key}",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        # Recheck immediately before writing the claim.
+                        latest_owner = room.setdefault("character_claims", {}).get(key)
+                        if latest_owner not in (None, username):
+                            st.error("Someone just claimed that character. Choose another one.")
+                            st.rerun()
+                        claims[key] = username
+                        profile["character_id"] = key
+                        profile["character_name"] = name
+                        profile["character_locked"] = True
+                        save(data)
+                        st.rerun()
+    return False
+
+
+# -------------------------- ACCOUNT SCREENS --------------------------
+def login_screen():
+    st.markdown(
+        "<div class='hero-card'><div class='hero-kicker'>WELCOME TO THE CITY</div>"
+        "<div class='hero-title'>🪙 SCAM JOSE PAUL</div>"
+        "<div class='hero-sub'>Build your balance. Find your people. Run your City.</div></div>",
+        unsafe_allow_html=True,
+    )
+    left, center, right = st.columns([1, 1.2, 1])
+    with center:
+        with st.container(border=True):
+            mode = st.radio("ACCOUNT", ["Login", "Create account"], horizontal=True)
+            username = st.text_input("Username", max_chars=24, placeholder="Choose a username")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            if st.button("Continue", type="primary", use_container_width=True):
+                if not username.strip() or not password:
+                    st.error("Enter both a username and password.")
+                else:
+                    data = load_data()
+                    name = username.strip()
+                    if mode == "Create account":
+                        if name in data["users"]:
+                            st.error("That username is already taken.")
+                        else:
+                            data["users"][name] = {
+                                "password_hash": core.hash_password(password),
+                                "last_active": time.time(),
+                                "current_room": None,
+                                "room_profiles": {},
+                            }
+                            save(data)
+                            st.session_state.user = name
+                            st.session_state.command_log = []
+                            st.rerun()
+                    else:
+                        account = data["users"].get(name)
+                        if account and core.verify_password(account.get("password_hash", ""), password):
+                            account["last_active"] = time.time()
+                            save(data)
+                            st.session_state.user = name
+                            st.session_state.command_log = []
+                            st.rerun()
+                        else:
+                            st.error("Incorrect username or password.")
+    st.caption("Use a unique password. This is a game account, not a secure password manager.")
+
+
+def lobby_screen(data, username, account, room_code=None):
+    st.markdown(
+        "<div class='hero-card'><div class='hero-kicker'>CITY NETWORK</div>"
+        "<div class='hero-title'>🏙️ City Lobby</div>"
+        "<div class='hero-sub'>Create a new City or join one with a Party Code.</div></div>",
+        unsafe_allow_html=True,
+    )
+
+    if room_code and room_code in data["rooms"]:
+        room = data["rooms"][room_code]
+        room_defaults(room)
+        st.subheader(f"🏙️ {room.get('name', 'Your City')}")
+        st.write(f"**Party Code:** `{room_code}`")
+        st.write(f"**Host:** {room.get('host', 'Unknown')}  ·  **Players:** {len(room['members'])}/{MAX_PLAYERS}")
+        st.divider()
+        if username == room.get("host"):
+            st.markdown("### Host controls")
+            with st.form(f"host_setup_{room_code}"):
+                city_name = st.text_input(
+                    "NAME YOUR CITY",
+                    value=room.get("name", ""),
+                    max_chars=35,
+                    placeholder="Enter your City name...",
+                )
+                preset_keys = list(core.CITIES.keys())
+                current_preset = room.get("preset", "egmore")
+                default_index = preset_keys.index(current_preset) if current_preset in preset_keys else 0
+                preset = st.selectbox(
+                    "Choose the City's location preset",
+                    options=preset_keys,
+                    index=default_index,
+                    format_func=lambda key: core.CITIES[key]["name"],
+                )
+                start = st.form_submit_button("🚀 START CITY", type="primary", use_container_width=True)
+            if start:
+                room["name"] = city_name.strip() or f"{username}'s City"
+                room["preset"] = preset
+                room["started"] = True
+                save(data)
+                st.success("Your City is live!")
+                st.rerun()
+            st.caption("Players can join while the City is running, until it reaches the 14-player limit.")
+        else:
+            st.info(f"Waiting for **{room.get('host', 'the host')}** to start this City.")
+            if st.button("Leave this lobby", use_container_width=True):
+                remove_member(data, username, room_code)
+                account["current_room"] = None
+                save(data)
+                st.rerun()
+
+        st.markdown("### 👥 Players in this lobby")
+        for member in room["members"]:
+            st.write(f"• {member}" + ("  ·  Host" if member == room.get("host") else ""))
+        return
+
+    create_col, join_col = st.columns(2)
+    with create_col:
+        with st.container(border=True):
+            st.subheader("✨ Create a City")
+            with st.form("create_city_form"):
+                new_city_name = st.text_input("City name", max_chars=35, placeholder="e.g. The Jose Empire")
+                new_preset = st.selectbox(
+                    "Location preset",
+                    options=list(core.CITIES.keys()),
+                    format_func=lambda key: core.CITIES[key]["name"],
+                )
+                create = st.form_submit_button("CREATE CITY", type="primary", use_container_width=True)
+            if create:
+                code = create_city(data, username, new_city_name, new_preset)
+                st.session_state.last_created_code = code
+                st.rerun()
+    with join_col:
+        with st.container(border=True):
+            st.subheader("🔑 Join a City")
+            with st.form("join_city_form"):
+                party_code = st.text_input("Party Code", max_chars=6, placeholder="Enter 6-character code").strip().upper()
+                join = st.form_submit_button("JOIN CITY", type="primary", use_container_width=True)
+            if join:
+                ok, message = join_city(data, username, party_code)
+                if ok:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+
+    if st.session_state.get("last_created_code"):
+        st.success(f"Your City was created. Party Code: {st.session_state.last_created_code}")
+
+    st.divider()
+    st.subheader("🌐 Available Cities")
+    available = [
+        (code, room) for code, room in data["rooms"].items()
+        if code != GLOBAL_ROOM and room.get("started", True)
+    ]
+    if not available:
+        st.caption("No public City listings yet. Join using a Party Code from the host.")
+    else:
+        for code, room in available:
+            c1, c2, c3 = st.columns([2.4, 1, 1])
+            c1.write(f"**{room.get('name', 'Unnamed City')}**")
+            c2.caption(f"{len(room.get('members', []))}/{MAX_PLAYERS} players")
+            if c3.button("Join", key=f"quick_join_{code}", disabled=len(room.get("members", [])) >= MAX_PLAYERS):
+                ok, message = join_city(data, username, code)
+                if ok:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+
+
+# -------------------------- COMMAND HANDLER --------------------------
+def execute_command(data, username, room_code, room, profile, city_cfg, raw_command):
+    parts = raw_command.strip().split()
+    if not parts:
+        return
+    cmd = parts[0].lower()
+    args = parts[1:]
+    out = []
+
+    def say(message):
+        out.append(str(message))
+
+    def commit():
+        save(data)
+
+    if cmd == "help":
+        say("🧭 COMMAND DIRECTORY")
+        say("BALANCE / BAL  — Check FamPay, bank, level and job")
+        say("BAG / INV / INVENTORY  — View inventory and loot")
+        say("SHOP  — Browse the Fresh 4 Today shop")
+        say("BUY <item>  — Purchase an item")
+        say("SELL <loot> [quantity]  — Sell collected loot")
+        say("DEPOSIT <amount>  ·  WITHDRAW <amount>")
+        say("JOBS  ·  APPLY <job_id>  ·  WORK")
+        say("DAILY  ·  BEG  ·  DIG  ·  HUNT  ·  FISH")
+        say("ROB <username>  — Attempt a City robbery")
+        say("ROOM LIST  ·  ROOM CREATE <preset>  ·  ROOM JOIN <code>")
+        say("TERMINATE_ROOM  — Host only")
+        say("PLAYERS  ·  LEADERBOARD / LB")
+        say("HEIST START  ·  HEIST CONTRIBUTE <amount>  ·  HEIST LAUNCH")
+        say("REVIVE  ·  EXIT  ·  HELP")
+        say("Tip: HELP is the command directory. No other screen lists commands.")
+
+    elif cmd in ("balance", "bal"):
+        job_name = core.JOBS.get(profile.get("job"), {}).get("name", profile.get("job", "None"))
+        say(f"FamPay Balance: 🪙 {profile['fampay']:,}")
+        say(f"FamPay Account: 🏦 {profile['bank']:,} / {profile['bank_max']:,}")
+        say(f"Level: {profile['level']}  ·  XP: {profile['xp']}/{profile['level'] * 300}  ·  Job: {job_name}")
+
+    elif cmd in ("bag", "inv", "inventory"):
+        items = [f"{core.SHOP_ITEMS[key]['name']} x{qty}" for key, qty in profile["inventory"].items() if qty and key in core.SHOP_ITEMS]
+        loot = [f"{core.LOOT_ITEMS[key]['name']} x{qty}" for key, qty in profile["loot"].items() if qty and key in core.LOOT_ITEMS]
+        say("🎒 INVENTORY")
+        say(", ".join(items + loot) if items or loot else "Your inventory is empty.")
+
+    elif cmd == "shop":
+        say("🛒 FRESH 4 TODAY — SHOP")
+        for key, item in core.SHOP_ITEMS.items():
+            say(f"{key} — {item['name']} · {item['price']:,} coins · {item['category']}")
+
+    elif cmd == "buy" and args:
+        key = args[0].lower()
+        item = core.SHOP_ITEMS.get(key)
+        if not item:
+            say("Item not found. Type `shop`.")
+        elif key == "sister_fahaana":
+            say("This collectible cannot be purchased in this build.")
+        elif profile["fampay"] < item["price"]:
+            say("Not enough FamPay Balance.")
+        else:
+            profile["fampay"] -= item["price"]
+            profile["inventory"][key] = profile["inventory"].get(key, 0) + 1
+            say(f"Purchased {item['name']} for {item['price']:,} coins.")
+            commit()
+
+    elif cmd == "sell" and args:
+        key = args[0].lower()
+        try:
+            qty = int(args[1]) if len(args) > 1 else 1
+        except ValueError:
+            qty = 0
+        item = core.LOOT_ITEMS.get(key)
+        if not item or qty < 1 or profile["loot"].get(key, 0) < qty:
+            say("Invalid loot item or quantity.")
+        else:
+            earned = item["sell_price"] * qty
+            profile["loot"][key] -= qty
+            profile["fampay"] += earned
+            say(f"Sold {qty}x {item['name']} for {earned:,} coins.")
+            commit()
+
+    elif cmd in ("deposit", "dep", "withdraw", "with") and args:
+        try:
+            amount = int(args[0])
+        except ValueError:
+            amount = 0
+        if amount <= 0:
+            say("Enter a positive amount.")
+        elif cmd in ("deposit", "dep"):
+            moved = min(amount, profile["fampay"], max(0, profile["bank_max"] - profile["bank"]))
+            profile["fampay"] -= moved
+            profile["bank"] += moved
+            say(f"Deposited {moved:,} coins.")
+            commit()
+        else:
+            moved = min(amount, profile["bank"])
+            profile["bank"] -= moved
+            profile["fampay"] += moved
+            say(f"Withdrew {moved:,} coins.")
+            commit()
+
+    elif cmd == "jobs":
+        say("💼 AVAILABLE JOBS")
+        for key, job in core.JOBS.items():
+            say(f"{key} — {job['name']} · Level {job['req_level']}+ · Pay {job['pay'][0]:,}–{job['pay'][1]:,}")
+
+    elif cmd == "apply" and args:
+        key = args[0].lower()
+        job = core.JOBS.get(key)
+        if not job:
+            say("Job not found. Type `jobs`.")
+        elif profile["level"] < job["req_level"]:
+            say(f"You need to reach level {job['req_level']} for this job.")
+        else:
+            profile["job"] = key
+            say(f"You are now a {job['name']}.")
+            commit()
+
+    elif cmd == "work":
+        if profile.get("dead"):
+            say("You need to revive before working.")
+        else:
+            job = core.JOBS.get(profile.get("job"), core.JOBS.get("moderator"))
+            pay = int(random.randint(*job["pay"]) * city_cfg.get("pay_mult", 1))
+            profile["fampay"] += pay
+            core.add_xp(profile, 50)
+            say(f"Completed your shift as {job['name']}. Earned {pay:,} coins and 50 XP.")
+            commit()
+
+    elif cmd == "daily":
+        now = time.time()
+        if now - profile.get("last_daily", 0) < 86400:
+            remaining = int(86400 - (now - profile.get("last_daily", 0)))
+            say(f"Daily reward already claimed. Try again in about {remaining // 3600}h {(remaining % 3600) // 60}m.")
+        else:
+            reward = 1000 + profile.get("daily_streak", 0) * 100
+            profile["fampay"] += reward
+            profile["last_daily"] = now
+            profile["daily_streak"] = profile.get("daily_streak", 0) + 1
+            say(f"Daily reward claimed: +{reward:,} coins.")
+            commit()
+
+    elif cmd == "beg":
+        reward = random.randint(50, 350)
+        if random.random() < 0.3:
+            say("Nobody gave you anything this time.")
+        else:
+            profile["fampay"] += reward
+            core.add_xp(profile, 20)
+            say(f"Someone helped you out: +{reward:,} coins and 20 XP.")
+            commit()
+
+    elif cmd in ("dig", "hunt", "fish"):
+        required = {"dig": "shovel", "hunt": "hunting_rifle", "fish": "fishing_rod"}[cmd]
+        if profile["inventory"].get(required, 0) <= 0:
+            say(f"You need {core.SHOP_ITEMS[required]['name']}. Buy it from `shop`.")
+        else:
+            if cmd == "hunt":
+                encounter = random.choice(core.HUNT_BOSSES)
+            elif cmd == "fish":
+                encounter = random.choice(core.FISH_BOSSES)
+            else:
+                encounter = random.choice(core.DIG_ANIMALS)
+            drop = encounter["drop"]
+            profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
+            reward = random.randint(250, 1200)
+            profile["fampay"] += reward
             core.add_xp(profile, 55)
             say(f"{encounter['name']}: collected {core.LOOT_ITEMS[drop]['name']} and earned {reward:,} coins + 55 XP.")
             commit()
