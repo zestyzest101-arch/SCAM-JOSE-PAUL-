@@ -158,6 +158,7 @@ def room_defaults(room):
     room.setdefault("heist", {"active": False, "contributions": {}})
     room.setdefault("started", True)
     room.setdefault("character_claims", {})
+    room.setdefault("chat_messages", [])
     # Keep the first recorded owner of a character. Claims are deliberately
     # not removed when a member leaves the City.
     if not isinstance(room["character_claims"], dict):
@@ -255,7 +256,16 @@ def get_current(data, username):
 def add_log(message):
     st.session_state.setdefault("command_log", [])
     st.session_state.command_log.append(str(message))
-    st.session_state.command_log = st.session_state.command_log[-40:]
+
+
+def add_chat_message(room, username, message, kind="user"):
+    """Append a persistent City chat message to the room save data."""
+    room.setdefault("chat_messages", []).append({
+        "user": str(username),
+        "message": str(message)[:1000],
+        "kind": kind,
+        "timestamp": time.time(),
+    })
 
 
 def make_room_code(data):
@@ -863,6 +873,9 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
 
     for line in out:
         add_log(line)
+    # Robbery and heist activity is also announced in the City's persistent chat.
+    if cmd in ("rob", "heist") and out:
+        add_chat_message(room, "CITY SYSTEM", f"{username}: {' '.join(out)}", kind="system")
     save(data)
 
 
@@ -959,59 +972,101 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
     metric3.metric("Level", profile["level"])
     metric4.metric("XP", f"{profile['xp']}/{profile['level'] * 300}")
 
-    left, right = st.columns([1.65, 1])
-    with left:
-        st.markdown("### 🎮 Command Console")
-        st.markdown("<div class='muted-note'>Enter a command below. Type <b>help</b> to see the command directory.</div>", unsafe_allow_html=True)
-        command_key = f"command_entry_{st.session_state.get('command_nonce', 0)}"
-        with st.container(border=True):
-            with st.form("command_form", clear_on_submit=True):
-                command = st.text_input(
-                    "Command",
-                    placeholder="Enter a command...",
-                    label_visibility="collapsed",
-                    key=command_key,
-                )
-                submitted = st.form_submit_button("⚡ RUN COMMAND", type="primary", use_container_width=True)
-        if submitted and command.strip():
-            execute_command(data, username, room_code, room, profile, city_cfg, command)
-            st.session_state.command_nonce = st.session_state.get("command_nonce", 0) + 1
+    game_tab, chat_tab = st.tabs(["🎮 GAME", "💬 CITY CHAT"])
+
+    with game_tab:
+        left, right = st.columns([1.65, 1])
+        with left:
+            st.markdown("### 🎮 Command Console")
+            st.markdown("<div class='muted-note'>Your command history stays above the input. Type <b>help</b> to see the command directory.</div>", unsafe_allow_html=True)
+
+            # The full session history is rendered in a scrollable area; it is
+            # deliberately not truncated to the last 18 or 40 lines.
+            log_lines = st.session_state.get("command_log", [])
+            with st.container(height=360, border=True):
+                if log_lines:
+                    for line in log_lines:
+                        st.markdown(
+                            f"<div style='padding:7px 3px;border-bottom:1px solid rgba(148,163,184,.10)'>{html.escape(str(line))}</div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption("Your command results will appear here. Start with `help`.")
+
+            command_key = f"command_entry_{st.session_state.get('command_nonce', 0)}"
+            with st.container(border=True):
+                with st.form("command_form", clear_on_submit=True):
+                    command = st.text_input(
+                        "Command",
+                        placeholder="Enter a command...",
+                        label_visibility="collapsed",
+                        key=command_key,
+                    )
+                    submitted = st.form_submit_button("⚡ RUN COMMAND", type="primary", use_container_width=True)
+            if submitted and command.strip():
+                execute_command(data, username, room_code, room, profile, city_cfg, command)
+                st.session_state.command_nonce = st.session_state.get("command_nonce", 0) + 1
+                st.rerun()
+
+        with right:
+            st.markdown("### 🎭 Your Character")
+            char_index = next((i for i, item in enumerate(CHARACTERS) if item[0] == profile.get("character_id")), None)
+            if char_index is not None:
+                image_path = BASE / "assets" / "characters" / f"character_{char_index + 1:02d}.jpg"
+                if image_path.exists():
+                    st.image(str(image_path), width=190)
+                st.markdown(f"<div class='character-name'>{CHARACTERS[char_index][1]}</div>", unsafe_allow_html=True)
+                st.caption(CHARACTERS[char_index][2])
+            st.divider()
+            st.markdown("### 🏙️ City Status")
+            st.write(f"**Host:** {room.get('host', 'Unknown')}")
+            st.write(f"**Members:** {len(room.get('members', []))}/{MAX_PLAYERS}")
+            job_name = core.JOBS.get(profile.get("job"), {}).get("name", profile.get("job", "None"))
+            st.write(f"**Career:** {job_name}")
+            st.write(f"**Inventory items:** {sum(profile['inventory'].values())}")
+            st.write(f"**Collectibles / loot:** {sum(profile['loot'].values())}")
+            st.divider()
+            st.markdown("### 👥 Players in this City")
+            for member in room.get("members", []):
+                if member not in data["users"] or data["users"][member].get("current_room") != room_code:
+                    continue
+                last_active = data["users"].get(member, {}).get("last_active", 0)
+                status = "🟢 Online" if time.time() - last_active < 120 else "⚪ Offline"
+                st.write(f"{status}  **{member}**" + (" · Host" if member == room.get("host") else ""))
+
+    with chat_tab:
+        st.markdown("### 💬 City Chat")
+        st.caption("Messages are saved with this City and remain available when players leave and return.")
+        refresh_col, info_col = st.columns([1, 3])
+        with refresh_col:
+            if st.button("↻ Refresh chat", use_container_width=True, key="refresh_city_chat"):
+                st.rerun()
+        with info_col:
+            st.caption("Chat is shared only with members of this City. Robbery and heist events appear here automatically.")
+
+        messages = room.setdefault("chat_messages", [])
+        with st.container(height=480, border=True):
+            if not messages:
+                st.caption("No messages yet. Start the conversation!")
+            for msg in messages:
+                author = str(msg.get("user", "Unknown"))
+                body = str(msg.get("message", ""))
+                stamp = msg.get("timestamp", 0)
+                time_label = time.strftime("%H:%M", time.localtime(stamp)) if stamp else ""
+                if msg.get("kind") == "system":
+                    st.info(f"**{author}** · {time_label}\n\n{body}")
+                else:
+                    with st.chat_message("user" if author == username else "assistant", avatar=None):
+                        st.markdown(f"**{html.escape(author)}** · {time_label}")
+                        st.write(body)
+
+        with st.form("city_chat_form", clear_on_submit=True):
+            chat_text = st.text_input("Message", placeholder="Message your City...", max_chars=1000)
+            send_chat = st.form_submit_button("➤ SEND MESSAGE", type="primary", use_container_width=True)
+        if send_chat and chat_text.strip():
+            add_chat_message(room, username, chat_text.strip())
+            save(data)
             st.rerun()
-
-        st.markdown("### 📟 Command Output")
-        log_lines = st.session_state.get("command_log", [])
-        with st.container(border=True):
-            if log_lines:
-                for line in log_lines[-18:]:
-                    st.markdown(f"<div style='padding:5px 2px;border-bottom:1px solid rgba(148,163,184,.10)'>{html.escape(str(line))}</div>", unsafe_allow_html=True)
-            else:
-                st.caption("Your command results will appear here. Start with `help`.")
-
-    with right:
-        st.markdown("### 🎭 Your Character")
-        char_index = next((i for i, item in enumerate(CHARACTERS) if item[0] == profile.get("character_id")), None)
-        if char_index is not None:
-            image_path = BASE / "assets" / "characters" / f"character_{char_index + 1:02d}.jpg"
-            if image_path.exists():
-                st.image(str(image_path), width=190)
-            st.markdown(f"<div class='character-name'>{CHARACTERS[char_index][1]}</div>", unsafe_allow_html=True)
-            st.caption(CHARACTERS[char_index][2])
-        st.divider()
-        st.markdown("### 🏙️ City Status")
-        st.write(f"**Host:** {room.get('host', 'Unknown')}")
-        st.write(f"**Members:** {len(room.get('members', []))}/{MAX_PLAYERS}")
-        job_name = core.JOBS.get(profile.get("job"), {}).get("name", profile.get("job", "None"))
-        st.write(f"**Career:** {job_name}")
-        st.write(f"**Inventory items:** {sum(profile['inventory'].values())}")
-        st.write(f"**Collectibles / loot:** {sum(profile['loot'].values())}")
-        st.divider()
-        st.markdown("### 👥 Players in this City")
-        for member in room.get("members", []):
-            if member not in data["users"] or data["users"][member].get("current_room") != room_code:
-                continue
-            last_active = data["users"].get(member, {}).get("last_active", 0)
-            status = "🟢 Online" if time.time() - last_active < 120 else "⚪ Offline"
-            st.write(f"{status}  **{member}**" + (" · Host" if member == room.get("host") else ""))
 
     save(data)
     st.caption("SCAM JOSE PAUL · Web edition · City progress is saved separately for each player and City.")
