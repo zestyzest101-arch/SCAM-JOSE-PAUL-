@@ -328,9 +328,10 @@ def load_all_data():
 
 
 def save_all_data(data):
+    os.makedirs(os.path.dirname(DATA_FILE) or ".", exist_ok=True)
+
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
-
 
 def hash_password(password, salt=None):
     if not salt: salt = secrets.token_hex(16)
