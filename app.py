@@ -583,6 +583,123 @@ def lobby_screen(data, username, account, room_code=None):
                     st.error(message)
 
 
+# -------------------------- JOB / MAIL / MINI-GAME HELPERS --------------------------
+JOB_GRACE_SECONDS = 24 * 60 * 60
+JOB_REMINDER_SECONDS = 20 * 60 * 60
+WORK_COOLDOWN_SECONDS = 60 * 60
+CRYPTO_START_PRICE = 125
+
+
+def add_mail(profile, subject, body, mail_type="notice"):
+    mailbox = profile.setdefault("mailbox", [])
+    mailbox.append({"subject": str(subject), "body": str(body), "type": mail_type,
+                    "timestamp": time.time(), "read": False})
+    profile["mailbox"] = mailbox[-50:]
+
+
+def refresh_job_status(profile):
+    """Issue an inbox reminder at 20h and fire an inactive employee at 24h."""
+    changed = False
+    job_key = profile.get("job")
+    if not job_key or job_key == "unemployed":
+        return changed
+    now = time.time()
+    last_work = profile.get("last_work")
+    if not last_work:
+        profile["last_work"] = now
+        profile["work_reminder_sent"] = False
+        return True
+    elapsed = now - float(last_work)
+    if elapsed >= JOB_GRACE_SECONDS:
+        old_job = core.JOBS.get(job_key, {}).get("name", job_key)
+        add_mail(profile, "EMPLOYMENT TERMINATED", f"You were fired from {old_job} because you missed the 24-hour work deadline. Apply for a new job to get back on the payroll.", "fired")
+        profile["job"] = "unemployed"
+        profile["last_work"] = 0
+        profile["work_reminder_sent"] = False
+        changed = True
+    elif elapsed >= JOB_REMINDER_SECONDS and not profile.get("work_reminder_sent", False):
+        job_name = core.JOBS.get(job_key, {}).get("name", job_key)
+        remaining = max(0, int(JOB_GRACE_SECONDS - elapsed))
+        add_mail(profile, "SHIFT REMINDER", f"Reminder: complete `work` within {remaining // 3600}h {(remaining % 3600) // 60}m or you will be fired from {job_name}.", "reminder")
+        profile["work_reminder_sent"] = True
+        changed = True
+    return changed
+
+
+CASINO_GAMES = {
+    "coinflip": "Coinflip — call heads or tails (automatic random call)",
+    "dice": "Dice — roll a six; high multiplier, low odds",
+    "slots": "Slots — match symbols for a payout",
+    "roulette": "Roulette — land on the lucky number",
+    "blackjack": "Blackjack — simplified draw against the dealer",
+    "highlow": "High-Low — guess whether the next card is higher",
+    "wheel": "Prize Wheel — spin for a multiplier",
+    "scratch": "Scratch Card — reveal a prize tier",
+    "rps": "Rock-Paper-Scissors — play against the house",
+    "horse": "Horse Race — pick the winning racer automatically",
+    "cups": "Shell Cups — find the hidden token",
+    "plinko": "Plinko — drop a token through the board",
+    "lottery": "Lucky Draw — rare jackpot chance",
+    "mines": "Crystal Grid — find the safe crystal",
+    "baccarat": "Baccarat — simplified player/banker draw",
+}
+
+
+def casino_result(game):
+    """Return (multiplier, explanation). Multiplier is gross return, not profit."""
+    if game == "coinflip":
+        win = random.choice([True, False])
+        return (1.9 if win else 0), ("The coin landed on your side." if win else "The coin landed the other way.")
+    if game == "dice":
+        roll = random.randint(1, 6)
+        return (5 if roll == 6 else 0), f"You rolled {roll}."
+    if game == "slots":
+        symbols = [random.choice(["🍒", "🍋", "🔔", "💎", "7️⃣"]) for _ in range(3)]
+        if len(set(symbols)) == 1:
+            return (12 if symbols[0] == "7️⃣" else 7), "Slot result: " + " | ".join(symbols) + " — triple match!"
+        if len(set(symbols)) == 2:
+            return 1.8, "Slot result: " + " | ".join(symbols) + " — pair match!"
+        return 0, "Slot result: " + " | ".join(symbols) + " — no match."
+    if game == "roulette":
+        number = random.randint(0, 17)
+        return (14 if number == 7 else 0), f"Roulette landed on {number}. Lucky number: 7."
+    if game == "blackjack":
+        player, dealer = random.randint(15, 22), random.randint(15, 22)
+        won = player <= 21 and (dealer > 21 or player > dealer)
+        push = player == dealer or (player > 21 and dealer > 21)
+        return (2 if won else 1 if push else 0), f"Your total: {player} · Dealer: {dealer}."
+    if game == "highlow":
+        first, second = random.randint(1, 13), random.randint(1, 13)
+        return (1.9 if second > first else 0), f"Card values: {first} → {second} (higher wins)."
+    if game == "wheel":
+        mult = random.choices([0, 1, 1.5, 2, 3, 5], weights=[25, 25, 20, 15, 10, 5])[0]
+        return mult, f"The prize wheel stopped at {mult}x."
+    if game == "scratch":
+        mult = random.choices([0, 1, 2, 4, 8], weights=[55, 15, 18, 9, 3])[0]
+        return mult, f"Your scratch card revealed a {mult}x prize."
+    if game == "rps":
+        return random.choice([(0, "The house won rock-paper-scissors."), (0, "The house won rock-paper-scissors."), (2, "You beat the house!")])
+    if game == "horse":
+        winner = random.randint(1, 5)
+        return (4 if winner == 1 else 0), f"Horse #{winner} crossed the finish line first. Your lucky horse was #1."
+    if game == "cups":
+        cup = random.randint(1, 3)
+        return (2.5 if cup == 1 else 0), f"The token was under cup #{cup}."
+    if game == "plinko":
+        mult = random.choices([0, 0.5, 1, 2, 4, 8], weights=[20, 20, 25, 20, 12, 3])[0]
+        return mult, f"Your Plinko chip landed in the {mult}x slot."
+    if game == "lottery":
+        ticket = random.randint(1, 100)
+        return (30 if ticket == 1 else 0), f"Lucky Draw ticket #{ticket:02d}. Jackpot number: 01."
+    if game == "mines":
+        safe = random.random() < 0.25
+        return (4 if safe else 0), ("You found the hidden crystal!" if safe else "That tile was empty.")
+    if game == "baccarat":
+        player, banker = random.randint(0, 9), random.randint(0, 9)
+        return (2 if player > banker else 1 if player == banker else 0), f"Player score: {player} · Banker score: {banker}."
+    return 0, "Unknown game."
+
+
 # -------------------------- COMMAND HANDLER --------------------------
 def execute_command(data, username, room_code, room, profile, city_cfg, raw_command):
     parts = raw_command.strip().split()
@@ -598,6 +715,9 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
     def commit():
         save(data)
 
+    if refresh_job_status(profile):
+        save(data)
+
     if cmd == "help":
         say("🧭 COMMAND DIRECTORY")
         say("BALANCE / BAL  — Check FamPay, bank, level and job")
@@ -606,7 +726,10 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("BUY <item>  — Purchase an item")
         say("SELL <loot> [quantity]  — Sell collected loot")
         say("DEPOSIT <amount>  ·  WITHDRAW <amount>")
-        say("JOBS  ·  APPLY <job_id>  ·  WORK")
+        say("JOBS  ·  APPLY <job_id>  ·  WORK  ·  MAILBOX [READ <number> | CLEAR]")
+        say("CASINO LIST  ·  CASINO <game> <amount> — 15 virtual-coin mini-games")
+        say("SCAM_CALL  ·  CRYPTO [BUY/SELL <units>]  ·  TAX_FRAUD")
+        say("BANK_HEIST  ·  CLERKS — fictional bank-clerk encounters")
         say("DAILY  ·  BEG  ·  DIG  ·  HUNT  ·  FISH")
         say("ROB <username>  — Attempt a City robbery")
         say("ROOM LIST  ·  ROOM CREATE <preset>  ·  ROOM JOIN <code>")
@@ -688,6 +811,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("💼 AVAILABLE JOBS")
         for key, job in core.JOBS.items():
             say(f"{key} — {job['name']} · Level {job['req_level']}+ · Pay {job['pay'][0]:,}–{job['pay'][1]:,}")
+        say("Rule: complete at least one shift every 24 hours or you are automatically fired.")
 
     elif cmd == "apply" and args:
         key = args[0].lower()
@@ -698,19 +822,199 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             say(f"You need to reach level {job['req_level']} for this job.")
         else:
             profile["job"] = key
-            say(f"You are now a {job['name']}.")
+            profile["last_work"] = time.time()
+            profile["work_reminder_sent"] = False
+            add_mail(profile, "WELCOME TO THE TEAM", f"You have been hired as {job['name']}. Complete `work` at least once every 24 hours to keep this job.", "hiring")
+            say(f"You are now a {job['name']}. Your 24-hour work timer has started.")
             commit()
 
     elif cmd == "work":
         if profile.get("dead"):
             say("You need to revive before working.")
+        elif profile.get("job") in (None, "unemployed"):
+            say("You are unemployed. Type `jobs`, then `apply <job_id>` to get hired.")
         else:
-            job = core.JOBS.get(profile.get("job"), core.JOBS.get("moderator"))
-            pay = int(random.randint(*job["pay"]) * city_cfg.get("pay_mult", 1))
-            profile["fampay"] += pay
-            core.add_xp(profile, 50)
-            say(f"Completed your shift as {job['name']}. Earned {pay:,} coins and 50 XP.")
+            last_work = float(profile.get("last_work", 0) or 0)
+            remaining = WORK_COOLDOWN_SECONDS - (time.time() - last_work)
+            if remaining > 0:
+                say(f"You have already completed a shift recently. Next shift available in {int(remaining // 60)}m {int(remaining % 60)}s. Your job deadline is still 24 hours from your last completed shift.")
+            else:
+                job = core.JOBS.get(profile.get("job"), core.JOBS.get("moderator"))
+                pay = int(random.randint(*job["pay"]) * city_cfg.get("pay_mult", 1))
+                profile["fampay"] += pay
+                profile["last_work"] = time.time()
+                profile["work_reminder_sent"] = False
+                core.add_xp(profile, 50)
+                add_mail(profile, "SHIFT COMPLETED", f"Your shift as {job['name']} is complete. You earned {pay:,} coins and 50 XP. Your next work deadline is in 24 hours.", "payroll")
+                say(f"Completed your shift as {job['name']}. Earned {pay:,} coins and 50 XP. Your 24-hour job timer has reset.")
+                commit()
+
+    elif cmd == "mailbox":
+        mailbox = profile.setdefault("mailbox", [])
+        sub = args[0].lower() if args else "list"
+        if sub == "clear":
+            before = len(mailbox)
+            profile["mailbox"] = [mail for mail in mailbox if not mail.get("read")]
+            say(f"Cleared {before - len(profile['mailbox'])} read message(s). Unread messages were kept.")
             commit()
+        elif sub == "read" and len(args) > 1:
+            try:
+                index = int(args[1]) - 1
+            except ValueError:
+                index = -1
+            if 0 <= index < len(mailbox):
+                mail = mailbox[index]
+                mail["read"] = True
+                say(f"📨 {mail.get('subject', 'Message')} — {mail.get('body', '')}")
+                commit()
+            else:
+                say("Message number not found. Use `mailbox` to view your inbox.")
+        else:
+            unread = sum(not mail.get("read") for mail in mailbox)
+            say(f"📬 MAILBOX — {unread} unread / {len(mailbox)} total")
+            if not mailbox:
+                say("Your mailbox is empty.")
+            for index, mail in enumerate(reversed(mailbox), 1):
+                status = "UNREAD" if not mail.get("read") else "READ"
+                say(f"{index}. [{status}] {mail.get('subject', 'Message')} — {mail.get('body', '')}")
+            say("Use `mailbox read <number>` to mark a message read, or `mailbox clear` to clear read messages.")
+
+    elif cmd == "casino":
+        if not args or args[0].lower() == "list":
+            say("🎰 VIRTUAL ARCADE — 15 MINI-GAMES")
+            for game_name, description in CASINO_GAMES.items():
+                say(f"{game_name} — {description}")
+            say("Play with fictional FamPay only: `casino <game> <amount>`. No real-money deposits or cash-outs.")
+        else:
+            game_name = args[0].lower()
+            if game_name not in CASINO_GAMES:
+                say("Game not found. Use `casino list`.")
+            else:
+                try:
+                    amount = int(args[1]) if len(args) > 1 else 0
+                except ValueError:
+                    amount = 0
+                if amount <= 0 or amount > profile["fampay"]:
+                    say("Enter a valid virtual-coin amount within your FamPay balance.")
+                else:
+                    profile["fampay"] -= amount
+                    multiplier, detail = casino_result(game_name)
+                    payout = int(amount * multiplier)
+                    profile["fampay"] += payout
+                    net = payout - amount
+                    say(f"🎮 {game_name.upper()} — {detail}")
+                    say(f"Entry: {amount:,} coins · Return: {payout:,} coins · Net: {net:+,} coins.")
+                    commit()
+
+    elif cmd in CASINO_GAMES:
+        # Short aliases are accepted, but the HELP directory remains the source of truth.
+        try:
+            amount = int(args[0]) if args else 0
+        except ValueError:
+            amount = 0
+        if amount <= 0 or amount > profile["fampay"]:
+            say("Usage: " + cmd + " <virtual_coin_amount>")
+        else:
+            profile["fampay"] -= amount
+            multiplier, detail = casino_result(cmd)
+            payout = int(amount * multiplier)
+            profile["fampay"] += payout
+            say(f"🎮 {cmd.upper()} — {detail}")
+            say(f"Entry: {amount:,} coins · Return: {payout:,} coins · Net: {payout - amount:+,} coins.")
+            commit()
+
+    elif cmd in ("scam_call", "scamcall"):
+        # Fictional comedy encounter only; no real-world scripts or tactics.
+        callers = ["Mr. Ramasamy", "The Confused Uncle", "A Very Suspicious NPC", "INVINGOPPA's Reception Desk"]
+        target = random.choice(callers)
+        if random.random() < 0.55:
+            reward = random.randint(700, 2600)
+            profile["fampay"] += reward
+            core.add_xp(profile, 35)
+            say(f"📞 SCAM CALL SIMULATION — {target} spotted the obvious joke and tipped your comedy hotline {reward:,} coins. +35 XP.")
+        else:
+            fine = min(profile["fampay"], random.randint(250, 900))
+            profile["fampay"] -= fine
+            say(f"📞 SCAM CALL SIMULATION — {target} reported the ridiculous call. City fine: {fine:,} coins.")
+        commit()
+
+    elif cmd == "crypto":
+        market = room.setdefault("crypto_market", {"price": CRYPTO_START_PRICE, "updated": time.time()})
+        now = time.time()
+        if now - float(market.get("updated", 0)) >= 900:
+            market["price"] = max(10, int(float(market.get("price", CRYPTO_START_PRICE)) * random.uniform(0.82, 1.20)))
+            market["updated"] = now
+        price = int(market.get("price", CRYPTO_START_PRICE))
+        sub = args[0].lower() if args else "market"
+        if sub == "buy" and len(args) > 1:
+            try:
+                units = float(args[1])
+            except ValueError:
+                units = 0
+            cost = int(units * price)
+            if units <= 0 or cost <= 0 or cost > profile["fampay"]:
+                say("Usage: `crypto buy <units>` — enter a positive quantity you can afford.")
+            else:
+                profile["fampay"] -= cost
+                profile["crypto_units"] = round(float(profile.get("crypto_units", 0)) + units, 4)
+                say(f"Bought {units:g} SCAMCOIN for {cost:,} FamPay. Market price: {price:,} per coin.")
+                commit()
+        elif sub == "sell" and len(args) > 1:
+            try:
+                units = float(args[1])
+            except ValueError:
+                units = 0
+            held = float(profile.get("crypto_units", 0))
+            if units <= 0 or units > held:
+                say(f"You hold {held:g} SCAMCOIN. Enter a valid quantity to sell.")
+            else:
+                proceeds = int(units * price)
+                profile["crypto_units"] = round(held - units, 4)
+                profile["fampay"] += proceeds
+                say(f"Sold {units:g} SCAMCOIN for {proceeds:,} FamPay at {price:,} each.")
+                commit()
+        else:
+            value = int(float(profile.get("crypto_units", 0)) * price)
+            say("🪙 SCAMCOIN MARKET — fictional in-game market")
+            say(f"Current price: {price:,} FamPay per SCAMCOIN")
+            say(f"Your holdings: {float(profile.get('crypto_units', 0)):g} SCAMCOIN · Estimated value: {value:,} FamPay")
+            say("Use `crypto buy <units>` or `crypto sell <units>`. Market prices fluctuate every 15 minutes.")
+
+    elif cmd == "tax_fraud":
+        # Purely fictional random event; deliberately contains no real tax-evasion advice.
+        say("🧾 TAX_FRAUD — fictional cartoon tax-office challenge")
+        if random.random() < 0.35:
+            bonus = random.randint(1800, 5200)
+            profile["fampay"] += bonus
+            core.add_xp(profile, 45)
+            say(f"The pixel auditor approved your imaginary paperwork. Bonus: {bonus:,} coins +45 XP.")
+        else:
+            fine = min(profile["fampay"], random.randint(900, 3000))
+            profile["fampay"] -= fine
+            say(f"INVINGOPPA's audit bot flagged the cartoon form. Fine: {fine:,} coins.")
+        commit()
+
+    elif cmd == "clerks":
+        say("🏦 BANK CLERK ROSTER")
+        for clerk in core.BANK_CLERKS:
+            say(f"[{clerk['tier']}] {clerk['name']} · Reward {clerk['reward']:,} · Encounter risk {int(clerk['risk'] * 100)}%")
+        say("Use `bank_heist` for a random fictional clerk encounter.")
+
+    elif cmd == "bank_heist":
+        clerk = random.choices(core.BANK_CLERKS, weights=[c["weight"] for c in core.BANK_CLERKS], k=1)[0]
+        say(f"🏦 BANK HEIST EVENT — {clerk['name']} ({clerk['tier']})")
+        if random.random() > clerk["risk"]:
+            reward = clerk["reward"]
+            drop = clerk["drop"]
+            profile["fampay"] += reward
+            profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
+            core.add_xp(profile, 100)
+            say(f"The encounter was cleared! +{reward:,} coins, +100 XP, and {core.LOOT_ITEMS[drop]['name']}.")
+        else:
+            fine = min(profile["fampay"], max(500, clerk["reward"] // 5))
+            profile["fampay"] -= fine
+            say(f"The clerk caught the attempt. You paid a {fine:,}-coin game fine. No real-world instructions are involved.")
+        commit()
 
     elif cmd == "daily":
         now = time.time()
@@ -931,6 +1235,8 @@ def city_tools(data, username):
 def game_screen(data, username, account, room, profile, room_code, city_cfg):
     account["last_active"] = time.time()
     room_defaults(room)
+    if refresh_job_status(profile):
+        save(data)
 
     # No character can be changed after selection. A missing character means
     # this account has not yet claimed one in this City.
@@ -1076,6 +1382,15 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
                     st.image(str(image_path), width=190)
                 st.markdown(f"<div class='character-name'>{CHARACTERS[char_index][1]}</div>", unsafe_allow_html=True)
                 st.caption(CHARACTERS[char_index][2])
+            st.divider()
+            unread_mail = sum(not mail.get("read") for mail in profile.get("mailbox", []))
+            st.markdown(f"### 📬 Mailbox · {unread_mail} unread")
+            if unread_mail:
+                for mail in [m for m in reversed(profile.get("mailbox", [])) if not m.get("read")][:3]:
+                    st.warning(f"**{mail.get('subject', 'Message')}**\n\n{mail.get('body', '')}")
+                st.caption("Type `mailbox` in the console to view all messages.")
+            else:
+                st.caption("No unread messages. Type `mailbox` to open your inbox.")
             st.divider()
             st.markdown("### 🏙️ City Status")
             st.write(f"**Host:** {room.get('host', 'Unknown')}")
