@@ -124,19 +124,19 @@ st.markdown(
 # -------------------------- CHARACTERS --------------------------
 # INVINGOPPA remains character 13 (character_13.jpg).
 CHARACTERS = [
-    ("professor", "THE PROFESSOR", "Has 47 unfinished degrees and still asks Google how to boil water.", "Looking suspiciously intelligent."),
+    ("professor", "THE PROFESSOR", "Has 47 unfinished degrees and still asks Google how to boil water.", "+10% pay from WORK shifts."),
     ("heartbreaker", "THE RIZZLER", "Will get the buzz to pull thy huzz.", "+15% coins from BEG. The charm is apparently tax-deductible."),
-    ("uncle_jose", "UNCLE JOSE", "Retired businessman. Wanted in 4 neighbourhood WhatsApp groups.", "Unsolicited life advice."),
+    ("uncle_jose", "UNCLE JOSE", "Retired businessman. Wanted in 4 neighbourhood WhatsApp groups.", "Loses 10% fewer coins in failed street encounters."),
     ("sleeping_ceo", "THE NAKED MAFIA LEADER", "Will send tingles down ur wingles.", "+15% coins from successful CRIME runs. The City fears the vibes."),
     ("og", "SAM DA BABY", "4 year old bebeh.", "10% discount on SHOP purchases. Tiny CEO, enormous savings."),
-    ("mystery_man", "THE MYSTERY MAN", "Nobody knows who he is. Not even his own profile picture.", "Classified information."),
-    ("ancient_one", "THE ANCIENT ONE", "His account is older than the City's economy.", "Historical knowledge (questionable)."),
-    ("hello_kitty_boss", "HELLO KITTY FINAL BOSS", "Cute appearance. The financial crimes department has opened a file.", "Unexpected chaos."),
-    ("npc", "THE NPC", "Stares into the distance. Somehow owns a mansion.", "Random encounters."),
-    ("cat_whisperer", "THE CAT WHISPERER", "Doesn't trust humans. Has a suspiciously large fish collection.", "Animal connections."),
+    ("mystery_man", "THE MYSTERY MAN", "Nobody knows who he is. Not even his own profile picture.", "+5% returns from CASINO games."),
+    ("ancient_one", "THE ANCIENT ONE", "His account is older than the City's economy.", "+10% coins when selling LOOT."),
+    ("hello_kitty_boss", "HELLO KITTY FINAL BOSS", "Cute appearance. The financial crimes department has opened a file.", "+10% DAILY reward."),
+    ("npc", "THE NPC", "Stares into the distance. Somehow owns a mansion.", "+5% bonus on HUNT and FISH rewards."),
+    ("cat_whisperer", "THE CAT WHISPERER", "Doesn't trust humans. Has a suspiciously large fish collection.", "+15% rewards from HUNT and FISH."),
     ("confused_citizen", "Paul mogger", "Only mews and eats gum.", "+15% XP from activities. Mewing is apparently productive."),
-    ("security_guard", "THE SECURITY GUARD", "Looks like he knows something. Refuses to elaborate.", "Intimidating presence."),
-    ("invingoppa", "INVINGOPPA", "The bank clerk has arrived. Your loan application was rejected before you even opened it.", "Financial intimidation."),
+    ("security_guard", "THE SECURITY GUARD", "Looks like he knows something. Refuses to elaborate.", "Reduces failed CRIME-run losses by 15%."),
+    ("invingoppa", "INVINGOPPA", "The bank clerk has arrived. Your loan application was rejected before you even opened it.", "Banknote upgrades add +6,000 bank space instead of +5,000."),
     ("drip_lord", "Chikko chezhiyanin magan", "Anna sowwww.", "+15% DAILY reward. The anna economy is thriving."),
 ]
 
@@ -146,10 +146,66 @@ def character_id(profile):
 
 
 def award_xp(profile, amount):
-    # Paul Mogger's character perk: 15% extra XP, rounded down.
     if character_id(profile) == "confused_citizen":
         amount = int(amount * 1.15)
     core.add_xp(profile, amount)
+
+
+def character_bonus(profile, activity, amount):
+    """Apply the selected character's small, activity-specific passive bonus."""
+    cid = character_id(profile)
+    multipliers = {
+        ("professor", "work"): 1.10,
+        ("mystery_man", "casino"): 1.05,
+        ("ancient_one", "sell"): 1.10,
+        ("hello_kitty_boss", "daily"): 1.10,
+        ("npc", "wildlife"): 1.05,
+        ("cat_whisperer", "wildlife"): 1.15,
+        ("heartbreaker", "beg"): 1.15,
+        ("sleeping_ceo", "crime"): 1.15,
+        ("drip_lord", "daily"): 1.15,
+    }
+    return int(amount * multipliers.get((cid, activity), 1.0))
+
+
+# One active ability per character. All abilities use a one-hour cooldown.
+CHARACTER_ABILITIES = {
+    "professor": ("EXAM CRAM", "Gain 120 XP instantly."),
+    "heartbreaker": ("RIZZ STORM", "Charm the City into giving you 750–1,500 coins."),
+    "uncle_jose": ("OLD CONTACTS", "Call in a favour and receive one Padlock."),
+    "sleeping_ceo": ("MAFIA ENVELOPE", "Collect a secret 2,000–4,000 coin bonus."),
+    "og": ("TINY CEO SUBSIDY", "Get one free Shield from the tiny treasury."),
+    "mystery_man": ("MYSTERY PAYOUT", "Flip a mystery reward: coins or XP."),
+    "ancient_one": ("ANTIQUE APPRAISAL", "Sell one random piece of loot automatically; if you have none, receive 1,000 coins."),
+    "hello_kitty_boss": ("CUTENESS TAX REFUND", "Claim a 1,250-coin refund from the City."),
+    "npc": ("MAIN CHARACTER MOMENT", "Gain one Shield and 40 XP."),
+    "cat_whisperer": ("PURRFECT DELIVERY", "A mysterious cat delivers one random loot item."),
+    "confused_citizen": ("MEW MODE", "Gain 180 XP through intense gum-powered focus."),
+    "security_guard": ("EMERGENCY LOCKDOWN", "Receive one Padlock and one Shield."),
+    "invingoppa": ("BANKER'S BLESSING", "Increase your bank capacity by 1,500 coins."),
+    "drip_lord": ("ANNA'S BLESSING", "Receive a 2,000-coin anna-approved bonus."),
+}
+ABILITY_COOLDOWN_SECONDS = 3600
+
+
+GAIN_BANTER = [
+    "SAAVU DAAA! THE COINS ARE FLOWING.", "WE ARE SO BACK.",
+    "THE ECONOMY HAS CHOSEN YOU TODAY.", "MONEY PRINTER GO BRRR.",
+    "BIG W. YOUR WALLET THANKS YOU.", "ABSOLUTE FINANCIAL CINEMA.",
+    "STONKS. THE BANKER IS NERVOUS.", "THAT'S A CLEAN PROFIT.",
+    "CHA-CHING! THE CITY HEARD THAT.", "ANNA LEVEL FINANCIAL PERFORMANCE.",
+    "WALLET GLOW-UP IN PROGRESS.", "THE COIN COUNT GOES CRAZY.",
+    "BILLIONAIRE ARC UNLOCKED (IN THIS GAME).", "THAT'S WHAT WE CALL A W.",
+]
+LOSS_BANTER = [
+    "AYYO WHERE DID THE MONEY GO?", "SAAVU DAAA... THE WALLET IS CRYING.",
+    "THE ECONOMY HAS BETRAYED YOU.", "FINANCIAL DAMAGE. ABSOLUTELY UNNECESSARY.",
+    "YOUR WALLET JUST TOOK A VACATION WITHOUT YOU.", "NOT THE COINS. ANYTHING BUT THE COINS.",
+    "THIS IS A PERSONAL ATTACK ON YOUR BANK BALANCE.", "THE BANKER IS NOT PICKING UP.",
+    "L. WE LEARN AND WE MOVE.", "THAT PURCHASE HURT MORE THAN EXPECTED.",
+    "THE WALLET HAS LEFT THE GROUP CHAT.", "BRO GOT FINANCIALLY JUMPSCARED.",
+    "COINS DOWN. CHARACTER DEVELOPMENT UP.", "THE TREASURER IS DISAPPOINTED.",
+]
 
 
 # -------------------------- DATA / SAVE --------------------------
@@ -171,6 +227,7 @@ def room_defaults(room):
     room.setdefault("started", True)
     room.setdefault("character_claims", {})
     room.setdefault("chat_messages", [])
+    room.setdefault("created_at", time.time())
     # Keep the first recorded owner of a character. Claims are deliberately
     # not removed when a member leaves the City.
     if not isinstance(room["character_claims"], dict):
@@ -331,14 +388,15 @@ def move_user(data, username, destination_code):
         get_profile(data, username, destination_code)
 
 
-def create_city(data, username, city_name, preset):
+def create_city(data, username, city_name, preset, is_public=False):
     code = make_room_code(data)
     name = city_name.strip()[:35] or f"{username}'s City"
     data["rooms"][code] = {
         "host": username,
         "name": name,
         "preset": preset if preset in core.CITIES else "egmore",
-        "is_public": False,
+        "is_public": bool(is_public),
+        "created_at": time.time(),
         "members": [],
         "heist": {"active": False, "contributions": {}},
         "started": False,
@@ -517,10 +575,13 @@ def lobby_screen(data, username, account, room_code=None):
                     index=default_index,
                     format_func=lambda key: core.CITIES[key]["name"],
                 )
+                visibility = st.radio("City visibility", ["Private", "Public"],
+                                      index=1 if room.get("is_public") else 0, horizontal=True)
                 start = st.form_submit_button("🚀 START CITY", type="primary", use_container_width=True)
             if start:
                 room["name"] = city_name.strip() or f"{username}'s City"
                 room["preset"] = preset
+                room["is_public"] = visibility == "Public"
                 room["started"] = True
                 save(data)
                 st.success("Your City is live!")
@@ -550,9 +611,11 @@ def lobby_screen(data, username, account, room_code=None):
                     options=list(core.CITIES.keys()),
                     format_func=lambda key: core.CITIES[key]["name"],
                 )
+                visibility = st.radio("City visibility", ["Private", "Public"], horizontal=True,
+                                      help="Public Cities appear in discovery. Private Cities can only be joined with their Party Code.")
                 create = st.form_submit_button("CREATE CITY", type="primary", use_container_width=True)
             if create:
-                code = create_city(data, username, new_city_name, new_preset)
+                code = create_city(data, username, new_city_name, new_preset, visibility == "Public")
                 st.session_state.last_created_code = code
                 st.rerun()
     with join_col:
@@ -573,13 +636,13 @@ def lobby_screen(data, username, account, room_code=None):
         st.success(f"Your City was created. Party Code: {st.session_state.last_created_code}")
 
     st.divider()
-    st.subheader("🌐 Available Cities")
+    st.subheader("🌐 Public Cities")
     available = [
         (code, room) for code, room in data["rooms"].items()
-        if code != GLOBAL_ROOM and room.get("started", True)
+        if code != GLOBAL_ROOM and room.get("started", True) and room.get("is_public", False)
     ]
     if not available:
-        st.caption("No public City listings yet. Join using a Party Code from the host.")
+        st.caption("No public Cities are listed yet. Private Cities require a Party Code from the host.")
     else:
         for code, room in available:
             c1, c2, c3 = st.columns([2.4, 1, 1])
@@ -721,7 +784,12 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
     out = []
 
     def say(message):
-        out.append(str(message))
+        message = str(message)
+        out.append(message)
+        lower = message.lower()
+        if "coin" in lower and any(word in lower for word in ("earned", "reward", "won", "bonus", "sold", "purchased", "deposited", "withdrew", "paid", "lost", "fine", "mugged", "cost", "contributed", "consumed", "bought")):
+            loss_words = ("lost", "fine", "mugged", "cost", "paid", "contributed", "purchased", "deposited", "consumed", "bought")
+            out.append(random.choice(LOSS_BANTER if any(word in lower for word in loss_words) else GAIN_BANTER))
 
     def commit():
         save(data)
@@ -736,6 +804,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("")
         say("💰 MONEY & BANKING")
         say("BAL / BALANCE — View wallet, bank, level, XP and job")
+        say("ABILITY / SPECIAL — Activate your selected character's unique power (1-hour cooldown)")
         say("DEPOSIT <amount> — Move FamPay into your bank")
         say("WITHDRAW <amount> — Take FamPay out of your bank")
         say("BANK_HEIST — Enter a fictional bank encounter")
@@ -800,6 +869,95 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("")
         say("💡 Tip: HELP is the in-game feature directory. Explore a category to discover what your City has to offer!")
 
+    elif cmd in ("ability", "special", "power"):
+        cid = character_id(profile)
+        ability = CHARACTER_ABILITIES.get(cid)
+        if not ability:
+            say("Select a character first to unlock a character ability.")
+        elif profile.get("dead"):
+            say("You need to revive before using your character ability.")
+        else:
+            ability_name, description = ability
+            now = time.time()
+            cooldown_until = float(profile.get("ability_cooldown", 0) or 0)
+            if now < cooldown_until:
+                remaining = int(cooldown_until - now)
+                say(f"{ability_name} is recharging. Try again in {remaining // 60}m {remaining % 60}s.")
+            else:
+                result = ""
+                if cid == "professor":
+                    award_xp(profile, 120)
+                    result = "Your brain cells clocked in. +120 XP."
+                elif cid == "heartbreaker":
+                    amount = random.randint(750, 1500)
+                    profile["fampay"] += amount
+                    result = f"The whole City fell for the pitch. +{amount:,} coins."
+                elif cid == "uncle_jose":
+                    profile.setdefault("inventory", {})["padlock"] = profile["inventory"].get("padlock", 0) + 1
+                    result = "One old contact delivered a Padlock. Your wallet has connections."
+                elif cid == "sleeping_ceo":
+                    amount = random.randint(2000, 4000)
+                    profile["fampay"] += amount
+                    result = f"A mysterious envelope arrived. +{amount:,} coins. No questions asked."
+                elif cid == "og":
+                    profile.setdefault("inventory", {})["shield"] = profile["inventory"].get("shield", 0) + 1
+                    result = "Tiny CEO approved one free Shield. Small boss, big budget."
+                elif cid == "mystery_man":
+                    if random.random() < 0.5:
+                        amount = random.randint(1000, 2500)
+                        profile["fampay"] += amount
+                        result = f"The mystery envelope contained +{amount:,} coins. Nobody knows why."
+                    else:
+                        award_xp(profile, 100)
+                        result = "The mystery envelope contained +100 XP. Knowledge? Suspicious."
+                elif cid == "ancient_one":
+                    loot = profile.setdefault("loot", {})
+                    owned = [key for key, quantity in loot.items() if quantity > 0 and key in core.LOOT_ITEMS]
+                    if owned:
+                        key = random.choice(owned)
+                        loot[key] -= 1
+                        amount = core.LOOT_ITEMS[key]["sell_price"]
+                        amount = character_bonus(profile, "sell", amount)
+                        profile["fampay"] += amount
+                        result = f"Appraised and sold one {core.LOOT_ITEMS[key]['name']}. +{amount:,} coins."
+                    else:
+                        profile["fampay"] += 1000
+                        result = "No antiques in your bag. The appraiser paid a 1,000-coin consultation fee anyway."
+                elif cid == "hello_kitty_boss":
+                    profile["fampay"] += 1250
+                    result = "The City paid its cuteness tax refund. +1,250 coins."
+                elif cid == "npc":
+                    profile.setdefault("inventory", {})["shield"] = profile["inventory"].get("shield", 0) + 1
+                    award_xp(profile, 40)
+                    result = "You stood perfectly still and somehow gained a Shield +40 XP. NPC lore."
+                elif cid == "cat_whisperer":
+                    loot_keys = list(core.LOOT_ITEMS)
+                    if loot_keys:
+                        key = random.choice(loot_keys)
+                        profile.setdefault("loot", {})[key] = profile["loot"].get(key, 0) + 1
+                        result = f"A cat dropped off {core.LOOT_ITEMS[key]['name']}. It refuses to elaborate."
+                    else:
+                        profile["fampay"] += 1000
+                        result = "The cat left 1,000 coins instead. Meow-nificent."
+                elif cid == "confused_citizen":
+                    award_xp(profile, 180)
+                    result = "Mew Mode activated. +180 XP. The gum-powered grind continues."
+                elif cid == "security_guard":
+                    inv = profile.setdefault("inventory", {})
+                    inv["padlock"] = inv.get("padlock", 0) + 1
+                    inv["shield"] = inv.get("shield", 0) + 1
+                    result = "Emergency lockdown complete. +1 Padlock and +1 Shield."
+                elif cid == "invingoppa":
+                    profile["bank_max"] = int(profile.get("bank_max", 10000)) + 1500
+                    result = f"The banker's stamp is approved. Bank capacity is now {profile['bank_max']:,} coins."
+                elif cid == "drip_lord":
+                    profile["fampay"] += 2000
+                    result = "Anna's blessing has landed. +2,000 coins. ANNA SOWWWW."
+                profile["ability_cooldown"] = now + ABILITY_COOLDOWN_SECONDS
+                say(f"✨ {ability_name} ACTIVATED! {result}")
+                say("Your next character ability is available in 1 hour.")
+                commit()
+
     elif cmd in ("balance", "bal"):
         job_name = core.JOBS.get(profile.get("job"), {}).get("name", profile.get("job", "None"))
         say(f"FamPay Balance: 🪙 {profile['fampay']:,}")
@@ -832,24 +990,27 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
                 if shop_item.get("desc"):
                     say(f"  {shop_item['desc']}")
         say("")
-        say("Use BUY <item_key> to purchase. Your BAG shows what you own.")
+        say("Use BUY <item_key> to purchase. Banknotes are consumed instantly; other items appear in your BAG.")
 
     elif cmd == "buy" and args:
         key = args[0].lower()
         item = core.SHOP_ITEMS.get(key)
         if not item:
             say("Item not found. Type `shop`.")
-        elif key == "sister_fahaana":
-            say("This collectible cannot be purchased in this build.")
         else:
             price = int(item["price"] * 0.90) if character_id(profile) == "og" else item["price"]
             if profile["fampay"] < price:
                 say("Not enough FamPay Balance.")
             else:
                 profile["fampay"] -= price
-                profile["inventory"][key] = profile["inventory"].get(key, 0) + 1
                 discount_note = " (10% Sam da Baby discount)" if character_id(profile) == "og" else ""
-                say(f"Purchased {item['name']} for {price:,} coins{discount_note}.")
+                if key == "banknote":
+                    increase = 6000 if character_id(profile) == "invingoppa" else 5000
+                    profile["bank_max"] = int(profile.get("bank_max", 5000)) + increase
+                    say(f"BANKNOTE USED AUTOMATICALLY! Bank capacity increased by {increase:,} to {profile['bank_max']:,} coins. The note was consumed{discount_note}.")
+                else:
+                    profile["inventory"][key] = profile["inventory"].get(key, 0) + 1
+                    say(f"Purchased {item['name']} for {price:,} coins{discount_note}.")
                 commit()
 
     elif cmd == "sell" and args:
@@ -862,7 +1023,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         if not item or qty < 1 or profile["loot"].get(key, 0) < qty:
             say("Invalid loot item or quantity.")
         else:
-            earned = item["sell_price"] * qty
+            earned = character_bonus(profile, "sell", item["sell_price"] * qty)
             profile["loot"][key] -= qty
             profile["fampay"] += earned
             say(f"Sold {qty}x {item['name']} for {earned:,} coins.")
@@ -921,7 +1082,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
                 say(f"You have already completed a shift recently. Next shift available in {int(remaining // 60)}m {int(remaining % 60)}s. Your job deadline is still 24 hours from your last completed shift.")
             else:
                 job = core.JOBS.get(profile.get("job"), core.JOBS.get("moderator"))
-                pay = int(random.randint(*job["pay"]) * city_cfg.get("pay_mult", 1))
+                pay = character_bonus(profile, "work", int(random.randint(*job["pay"]) * city_cfg.get("pay_mult", 1)))
                 profile["fampay"] += pay
                 profile["last_work"] = time.time()
                 profile["work_reminder_sent"] = False
@@ -980,7 +1141,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
                 else:
                     profile["fampay"] -= amount
                     multiplier, detail = casino_result(game_name)
-                    payout = int(amount * multiplier)
+                    payout = character_bonus(profile, "casino", int(amount * multiplier))
                     profile["fampay"] += payout
                     net = payout - amount
                     say(f"🎮 {game_name.upper()} — {detail}")
@@ -998,7 +1159,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         else:
             profile["fampay"] -= amount
             multiplier, detail = casino_result(cmd)
-            payout = int(amount * multiplier)
+            payout = character_bonus(profile, "casino", int(amount * multiplier))
             profile["fampay"] += payout
             say(f"🎮 {cmd.upper()} — {detail}")
             say(f"Entry: {amount:,} coins · Return: {payout:,} coins · Net: {payout - amount:+,} coins.")
@@ -1073,18 +1234,21 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
                 profile["crime_cooldown"] = now + 45
                 outcome = random.random()
                 if outcome < 0.58:
-                    reward = random.randint(8000, 65000)
-                    if character_id(profile) == "sleeping_ceo":
-                        reward = int(reward * 1.15)
+                    # Crime payouts are deliberately much smaller to keep the economy balanced.
+                    reward = character_bonus(profile, "crime", random.randint(1000, 8000))
                     profile["fampay"] += reward
-                    award_xp(profile, 90)
-                    say(f"💰 BIG SCORE! Your fictional crime run paid {reward:,} coins and 90 XP.")
+                    award_xp(profile, 50)
+                    say(f"💰 SMALL SCORE! Your fictional crime run paid {reward:,} coins and 50 XP.")
                 elif outcome < 0.86:
                     lost = min(profile["fampay"], max(500, int(profile["fampay"] * random.uniform(0.20, 0.60))))
                     if profile["inventory"].get("padlock", 0) > 0:
                         profile["inventory"]["padlock"] -= 1
                         say("🥷 You got mugged on the way out, but your Padlock broke and protected your wallet!")
                     else:
+                        if character_id(profile) == "uncle_jose":
+                            lost = int(lost * 0.90)
+                        elif character_id(profile) == "security_guard":
+                            lost = int(lost * 0.85)
                         profile["fampay"] -= lost
                         say(f"🥷 YOU GOT MUGGED! You lost {lost:,} coins. The run went very badly.")
                 else:
@@ -1143,8 +1307,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             say(f"Daily reward already claimed. Try again in about {remaining // 3600}h {(remaining % 3600) // 60}m.")
         else:
             reward = 1000 + profile.get("daily_streak", 0) * 100
-            if character_id(profile) == "drip_lord":
-                reward = int(reward * 1.15)
+            reward = character_bonus(profile, "daily", reward)
             profile["fampay"] += reward
             profile["last_daily"] = now
             profile["daily_streak"] = profile.get("daily_streak", 0) + 1
@@ -1156,8 +1319,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         if random.random() < 0.3:
             say("Nobody gave you anything this time.")
         else:
-            if character_id(profile) == "heartbreaker":
-                reward = int(reward * 1.15)
+            reward = character_bonus(profile, "beg", reward)
             profile["fampay"] += reward
             award_xp(profile, 20)
             say(f"Someone helped you out: +{reward:,} coins and 20 XP.")
@@ -1169,24 +1331,36 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             say(f"You need {core.SHOP_ITEMS[required]['name']}. Buy it from `shop`.")
         else:
             if cmd == "hunt":
-                encounter = random.choice(core.HUNT_BOSSES)
+                pool = core.HUNT_COMMON if random.random() < 0.72 else core.HUNT_BOSSES
+                encounter = random.choice(pool)
             elif cmd == "fish":
-                encounter = random.choice(core.FISH_BOSSES)
+                pool = core.FISH_COMMON if random.random() < 0.72 else core.FISH_BOSSES
+                encounter = random.choice(pool)
             else:
                 encounter = random.choice(core.DIG_ANIMALS)
-            drop = encounter["drop"]
-            profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
-            reward = random.randint(250, 1200)
-            profile["fampay"] += reward
-            award_xp(profile, 55)
-            say(f"{encounter['name']}: collected {core.LOOT_ITEMS[drop]['name']} and earned {reward:,} coins + 55 XP.")
+            if encounter.get("attack_chance", 0) and random.random() < encounter["attack_chance"]:
+                loss = min(profile["fampay"], encounter.get("attack_loss", 150))
+                profile["fampay"] -= loss
+                say(f"{encounter['name']} fought back! You lost {loss:,} coins and had to retreat.")
+            else:
+                reward = character_bonus(profile, "wildlife", random.randint(*encounter.get("reward_range", (250, 1200))))
+                profile["fampay"] += reward
+                drop = encounter.get("drop")
+                if drop and drop in core.LOOT_ITEMS:
+                    profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
+                    drop_text = f" Loot: {core.LOOT_ITEMS[drop]['name']}."
+                else:
+                    drop_text = " No loot dropped this time."
+                award_xp(profile, 55)
+                say(f"{encounter['name']}: earned {reward:,} coins + 55 XP.{drop_text}")
             commit()
 
     elif cmd in ("room", "rooms") and args:
         sub = args[0].lower()
         if sub == "list":
             for code, listed_room in data["rooms"].items():
-                say(f"{code} — {listed_room.get('name', 'Unnamed City')} — host {listed_room.get('host', 'Unknown')} — {len(listed_room.get('members', []))}/{MAX_PLAYERS} players")
+                if code == GLOBAL_ROOM or listed_room.get("is_public", False) or username in listed_room.get("members", []):
+                    say(f"{code} — {listed_room.get('name', 'Unnamed City')} — host {listed_room.get('host', 'Unknown')} — {len(listed_room.get('members', []))}/{MAX_PLAYERS} players")
         elif sub == "create":
             preset = args[1].lower() if len(args) > 1 else "egmore"
             if preset not in core.CITIES:
@@ -1339,9 +1513,10 @@ def city_tools(data, username):
                 format_func=lambda key: core.CITIES[key]["name"],
                 key="sidebar_city_preset",
             )
+            visibility = st.radio("Visibility", ["Private", "Public"], horizontal=True, key="sidebar_city_visibility")
             create = st.form_submit_button("Create City", use_container_width=True)
         if create:
-            code = create_city(data, username, city_name, preset)
+            code = create_city(data, username, city_name, preset, visibility == "Public")
             st.session_state.last_created_code = code
             st.rerun()
         with st.form("sidebar_join_city"):
@@ -1390,6 +1565,64 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
             st.rerun()
         st.divider()
         st.caption("HELP is the command directory. Type `help` in the console to see commands.")
+        with st.expander("📘 USERS MANUAL — How to play", expanded=False):
+            st.markdown("""
+**START HERE**
+- `help` — compact command list.
+- `ability` — activate your selected character's unique power; recharges after 1 hour.
+- `bal` — wallet, bank, level, XP and job.
+- `bag` — tools, items and collected loot.
+- `players` — see who is in this City.
+
+**MONEY & PROGRESSION**
+- `daily` — claim one daily reward when its timer resets.
+- `beg` — ask the City for a small random reward.
+- `work` — complete a shift for your selected job; cooldown and attendance rules apply.
+- `jobs` / `apply <job_id>` — browse jobs and apply if your level is high enough.
+- `deposit <amount>` / `withdraw <amount>` — move coins between FamPay and your bank.
+- `buy <item_key>` — purchase a shop item. Banknotes are consumed instantly and add bank capacity.
+- `sell <loot_key> [quantity]` — sell collected loot for coins.
+- `shop` — browse items grouped by category.
+
+**ACTIVITIES**
+- `hunt` — wildlife encounter; requires a Hunting Rifle. Some animals may attack and some give no loot.
+- `fish` — fishing encounter; requires a Fishing Rod. Some catches may fight back or give no loot.
+- `dig` — underground discovery; requires a Shovel.
+- `crime` — fictional high-risk money event with possible rewards, fines or a game-only character status consequence.
+- `casino <game> <amount>` — play a virtual-coin mini-game. `casino list` shows games.
+- `crypto` — view the fictional SCAMCOIN market; use its buy/sell subcommands.
+- `tax_fraud` — fictional random tax-office event.
+- `bank_heist` / `clerks` — fictional bank encounter and clerk roster.
+
+**CITY & SOCIAL**
+- `rob <username>` — attempt a fictional player-to-player wallet robbery within your City.
+- `heist start` / `heist contribute <amount>` / `heist launch` — run a team event with at least two contributors.
+- `leaderboard` — rank current City members by wallet + bank balance.
+- `mailbox` — read job notices and messages; use `mailbox read <number>` or `mailbox clear`.
+- `room list` / `room join <code>` — list/join Cities by Party Code.
+- `revive` — return to play if your character is out of action.
+
+**CHARACTER ABILITIES**
+- THE PROFESSOR — `EXAM CRAM`: +120 XP.
+- THE RIZZLER — `RIZZ STORM`: +750–1,500 coins.
+- UNCLE JOSE — `OLD CONTACTS`: +1 Padlock.
+- THE NAKED MAFIA LEADER — `MAFIA ENVELOPE`: +2,000–4,000 coins.
+- SAM DA BABY — `TINY CEO SUBSIDY`: +1 Shield.
+- THE MYSTERY MAN — `MYSTERY PAYOUT`: random coin or XP reward.
+- THE ANCIENT ONE — `ANTIQUE APPRAISAL`: sells one random loot item, or pays 1,000 coins if you have no loot.
+- HELLO KITTY FINAL BOSS — `CUTENESS TAX REFUND`: +1,250 coins.
+- THE NPC — `MAIN CHARACTER MOMENT`: +1 Shield and +40 XP.
+- THE CAT WHISPERER — `PURRFECT DELIVERY`: +1 random loot item.
+- Paul mogger — `MEW MODE`: +180 XP.
+- THE SECURITY GUARD — `EMERGENCY LOCKDOWN`: +1 Padlock and +1 Shield.
+- INVINGOPPA — `BANKER'S BLESSING`: +1,500 bank capacity.
+- Chikko chezhiyanin magan — `ANNA'S BLESSING`: +2,000 coins.
+
+**IMPORTANT**
+- Coins are fictional game currency; no real money is involved.
+- Public Cities appear in the lobby. Private Cities stay hidden and need a Party Code.
+- Character perks are passive and differ by character. Each character also has one active `ability` with a 1-hour cooldown.
+            """)
         city_tools(data, username)
         if room_code != GLOBAL_ROOM and room.get("host") == username:
             st.divider()
@@ -1416,6 +1649,23 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
         f"<div class='hero-sub'>Party Code: <b>{html.escape(str(room_code))}</b> &nbsp; · &nbsp; Host: <b>{html.escape(str(room.get('host', 'Unknown')))}</b></div></div>",
         unsafe_allow_html=True,
     )
+    city_created = float(room.get("created_at", time.time()))
+    clock_html = f"""<div style='margin:0 0 16px;padding:12px 16px;border:1px solid rgba(125,155,210,.28);border-radius:14px;background:rgba(12,20,34,.88);color:#dce8fb;font-family:monospace'>
+    <div style='font-size:.72rem;letter-spacing:2px;color:#9dbcf0;font-weight:800'>FAHAAN TIMEZONE</div>
+    <div id='fahaan-clock' style='font-size:1.3rem;font-weight:800;margin-top:4px'>Loading City clock…</div>
+    <div style='font-size:.72rem;color:#9eacc1;margin-top:3px'>Elapsed time since this City was created</div></div>
+    <script>
+    const start = {city_created * 1000};
+    const target = document.getElementById('fahaan-clock');
+    function tickFahaan() {{ const seconds = Math.max(0, Math.floor((Date.now()-start)/1000));
+      const day = Math.floor(seconds/86400)+1; const within = seconds%86400;
+      const hh=String(Math.floor(within/3600)).padStart(2,'0');
+      const mm=String(Math.floor((within%3600)/60)).padStart(2,'0');
+      const ss=String(within%60).padStart(2,'0');
+      target.textContent = `DAY ${{day}} · ${{hh}}:${{mm}}:${{ss}}`; }}
+    tickFahaan(); setInterval(tickFahaan,1000);
+    </script>"""
+    st.components.v1.html(clock_html, height=105)
 
     metric1, metric2, metric3, metric4 = st.columns(4)
     metric1.metric("FamPay Balance", f"🪙 {profile['fampay']:,}")
