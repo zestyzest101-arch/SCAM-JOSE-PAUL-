@@ -303,6 +303,28 @@ FISH_BOSSES = [
     {"name": "🦪 Giant Clam Oyster", "reward": 13500, "risk": 0.27, "drop": "pink_pearl"},
 ]
 
+HUNT_COMMON = [
+    {"name": "🐿️ Curious Squirrel", "reward_range": (120, 320), "drop": None},
+    {"name": "🐇 Park Rabbit", "reward_range": (180, 420), "drop": "rabbit_foot"},
+    {"name": "🦆 Angry Goose", "reward_range": (100, 300), "drop": None, "attack_chance": 0.38, "attack_loss": 180},
+    {"name": "🦝 Dumpster Raccoon", "reward_range": (160, 380), "drop": "raccoon_mask"},
+    {"name": "🦨 Grumpy Skunk", "reward_range": (90, 260), "drop": None, "attack_chance": 0.28, "attack_loss": 140},
+    {"name": "🦊 Shy Street Fox", "reward_range": (220, 500), "drop": None},
+    {"name": "🐒 Mischievous Monkey", "reward_range": (150, 360), "drop": "monkey_hair", "attack_chance": 0.20, "attack_loss": 220},
+    {"name": "🦔 Hedgehog", "reward_range": (100, 280), "drop": None},
+]
+
+FISH_COMMON = [
+    {"name": "🐟 Sardine", "reward_range": (100, 260), "drop": None},
+    {"name": "🐠 Clownfish", "reward_range": (140, 320), "drop": None},
+    {"name": "🐡 Pufferfish", "reward_range": (180, 400), "drop": None, "attack_chance": 0.24, "attack_loss": 160},
+    {"name": "🦀 Tiny Crab", "reward_range": (120, 300), "drop": "crab_shell", "attack_chance": 0.22, "attack_loss": 120},
+    {"name": "🐟 Catfish", "reward_range": (180, 420), "drop": "eel_battery"},
+    {"name": "🪼 Moon Jellyfish", "reward_range": (80, 240), "drop": None, "attack_chance": 0.18, "attack_loss": 100},
+    {"name": "🐟 Tilapia", "reward_range": (130, 310), "drop": None},
+    {"name": "🐍 River Eel", "reward_range": (200, 460), "drop": None, "attack_chance": 0.32, "attack_loss": 190},
+]
+
 DIG_ANIMALS = [
     {"name": "🪱 Giant Earthworm", "drop": "giant_worm"},
     {"name": "🦦 Blind Star-Nosed Mole", "drop": "mole_claw"},
