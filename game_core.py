@@ -399,6 +399,8 @@ BANK_CLERKS.extend([
     {"tier": "Regional Office", "name": "🗂️ Regional Clerk Prakash", "reward": 23000, "risk": 0.49, "drop": "clerk_lanyard", "weight": 8},
     {"tier": "Executive Floor", "name": "🏅 Executive Clerk Nandhini", "reward": 36000, "risk": 0.57, "drop": "clerk_trophy", "weight": 5},
     {"tier": "INVINGOPPA's Office", "name": "👑 Deputy Chief Clerk Invingoppa Jr.", "reward": 65000, "risk": 0.68, "drop": "clerk_stamp", "weight": 2},
+    {"tier": "INVINGOPPA Apprentice — Elite", "name": "🧑‍💼 Apprentice Clerk Karthik", "reward": 82000, "risk": 0.82, "drop": "clerk_trophy", "weight": 1},
+    {"tier": "INVINGOPPA Apprentice — Legendary", "name": "👩‍💼 Apprentice Clerk Meher", "reward": 95000, "risk": 0.88, "drop": "clerk_stamp", "weight": 1},
 ])
 
 DEATH_MESSAGES = [
@@ -411,6 +413,38 @@ DEATH_MESSAGES = [
     "You got ambushed during a high-stakes job and didn't make it.",
     "Your crypto portfolio hit -99.99% and gave you instant cardiac arrest.",
 ]
+
+# --- PET COLLECTION: original fan-inspired companion roster ---
+# All artwork in the app should be original/user-supplied; these are text references only.
+PET_CATALOG = {
+    "mini_steve": {"name":"Mini Steve", "game":"Minecraft", "rarity":"Common", "price":3000, "adoption":"Buy from Paul's Pet Paradise", "care_item":"cookie", "speciality":"Mining", "bonus_activity":"wildlife", "bonus":0.05, "description":"A tiny block-builder who loves collecting shiny things."},
+    "mini_crewmate": {"name":"Mini Crewmate", "game":"Among Us", "rarity":"Common", "price":3500, "adoption":"Buy from Paul's Pet Paradise", "care_item":"snack", "speciality":"Suspiciously lucky", "bonus_activity":"daily", "bonus":0.05, "description":"Follows you around and somehow knows when rewards are coming."},
+    "junimo": {"name":"Junimo", "game":"Stardew Valley", "rarity":"Common", "price":4000, "adoption":"Complete the starter harvest quest", "care_item":"fruit", "speciality":"Gardening", "bonus_activity":"sell", "bonus":0.05, "description":"A cheerful little forest spirit with a talent for trade."},
+    "wobbly_bean": {"name":"Wobbly Bean", "game":"Fall Guys", "rarity":"Common", "price":4000, "adoption":"Buy from Paul's Pet Paradise", "care_item":"toy", "speciality":"Luck", "bonus_activity":"casino", "bonus":0.03, "description":"Bounces into trouble and occasionally bounces back with coins."},
+    "mini_noob": {"name":"Mini Noob", "game":"Roblox", "rarity":"Common", "price":4500, "adoption":"Buy from Paul's Pet Paradise", "care_item":"toy", "speciality":"Learning", "bonus_activity":"xp", "bonus":0.05, "description":"A curious beginner who learns something from every activity."},
+    "pikachu": {"name":"Pikachu", "game":"Pokémon", "rarity":"Uncommon", "price":7500, "adoption":"Buy from Paul's Pet Paradise", "care_item":"berry", "speciality":"Energy", "bonus_activity":"daily_xp", "bonus":0.05, "description":"A bright companion that gives your daily training a spark."},
+    "baby_slime": {"name":"Baby Slime", "game":"Terraria", "rarity":"Uncommon", "price":7000, "adoption":"Buy from Paul's Pet Paradise", "care_item":"gel", "speciality":"Exploration", "bonus_activity":"wildlife", "bonus":0.05, "description":"A bouncy explorer that spots extra finds."},
+    "mini_pekka": {"name":"Mini P.E.K.K.A", "game":"Clash Royale", "rarity":"Uncommon", "price":9000, "adoption":"Buy from Paul's Pet Paradise", "care_item":"pancake", "speciality":"Resilience", "bonus_activity":"heist_defense", "bonus":0.05, "description":"Runs on pancakes and cartoon-level determination."},
+    "spike": {"name":"Spike", "game":"Brawl Stars", "rarity":"Uncommon", "price":9500, "adoption":"Buy from Paul's Pet Paradise", "care_item":"cactus_treat", "speciality":"Collecting", "bonus_activity":"sell", "bonus":0.06, "description":"Quiet, prickly, and surprisingly good at spotting valuables."},
+    "baby_sonic": {"name":"Baby Sonic", "game":"Sonic the Hedgehog", "rarity":"Uncommon", "price":10000, "adoption":"Buy from Paul's Pet Paradise", "care_item":"ring_snack", "speciality":"Speed", "bonus_activity":"work", "bonus":0.05, "description":"A speedy little helper who keeps your workday moving."},
+    "mini_chamber": {"name":"Mini Chamber", "game":"VALORANT", "rarity":"Rare", "price":15000, "adoption":"Buy after reaching Level 5", "care_item":"luxury_treat", "speciality":"Business", "bonus_activity":"work", "bonus":0.08, "description":"A tiny, sharply dressed finance enthusiast."},
+    "mini_mario": {"name":"Mini Mario", "game":"Super Mario", "rarity":"Rare", "price":16000, "adoption":"Complete the jumping puzzle quest", "care_item":"mushroom", "speciality":"Adventure", "bonus_activity":"xp", "bonus":0.08, "description":"A cheerful adventurer who celebrates every level-up."},
+    "paimon": {"name":"Paimon", "game":"Genshin Impact", "rarity":"Rare", "price":18000, "adoption":"Buy from Paul's Pet Paradise", "care_item":"sweet_snack", "speciality":"Treasure hunting", "bonus_activity":"wildlife", "bonus":0.08, "description":"Your emergency food... allegedly. Also a treasure enthusiast."},
+    "korok": {"name":"Korok", "game":"The Legend of Zelda", "rarity":"Rare", "price":17000, "adoption":"Find a hidden City collectible", "care_item":"seed", "speciality":"Discovery", "bonus_activity":"wildlife", "bonus":0.08, "description":"A tiny forest friend who loves hidden discoveries."},
+    "little_knight": {"name":"Little Knight", "game":"Hollow Knight", "rarity":"Rare", "price":19000, "adoption":"Complete the resilience quest", "care_item":"crystal", "speciality":"Resilience", "bonus_activity":"heist_defense", "bonus":0.08, "description":"A quiet little knight with a stubborn streak."},
+    "mugman": {"name":"Mugman", "game":"Cuphead", "rarity":"Legendary", "price":30000, "adoption":"Complete a special arcade quest", "care_item":"milkshake", "speciality":"Luck", "bonus_activity":"casino", "bonus":0.10, "description":"A legendary cup with an unusually lucky streak."},
+    "mini_dva": {"name":"Mini D.Va", "game":"Overwatch", "rarity":"Legendary", "price":32000, "adoption":"Win a multiplayer City event", "care_item":"gaming_snack", "speciality":"Teamwork", "bonus_activity":"heist_xp", "bonus":0.10, "description":"A tiny team captain who loves co-op adventures."},
+    "sans": {"name":"Sans", "game":"Undertale", "rarity":"Legendary", "price":34000, "adoption":"Solve the secret mailbox riddle", "care_item":"ketchup", "speciality":"Mystery", "bonus_activity":"random", "bonus":0.08, "description":"A laid-back skeleton with a talent for unexpected bonuses."},
+    "teemo": {"name":"Teemo", "game":"League of Legends", "rarity":"Legendary", "price":33000, "adoption":"Complete the exploration quest", "care_item":"mushroom", "speciality":"Exploration", "bonus_activity":"wildlife", "bonus":0.10, "description":"A tiny scout who always seems to find something interesting."},
+    "peely": {"name":"Peely", "game":"Fortnite", "rarity":"Legendary", "price":35000, "adoption":"Buy or unlock during a seasonal event", "care_item":"banana", "speciality":"Daily rewards", "bonus_activity":"daily", "bonus":0.10, "description":"A cheerful banana with a gift for daily surprises."},
+}
+PET_SUPPLIES = {
+    "cookie": ("Cookie", 100), "snack": ("Pet Snack", 120), "fruit": ("Fruit", 150), "toy": ("Toy", 250),
+    "berry": ("Berry", 150), "gel": ("Gel Snack", 180), "pancake": ("Pancake", 200), "cactus_treat": ("Cactus Treat", 200),
+    "ring_snack": ("Ring Snack", 220), "luxury_treat": ("Luxury Treat", 400), "mushroom": ("Mushroom Snack", 250),
+    "sweet_snack": ("Sweet Snack", 220), "seed": ("Forest Seeds", 180), "crystal": ("Crystal Treat", 300),
+    "milkshake": ("Milkshake", 350), "gaming_snack": ("Gaming Snack", 300), "ketchup": ("Ketchup", 100), "banana": ("Banana", 120),
+}
 
 # --- Database & Multiplayer Helpers ---
 def load_all_data():
@@ -487,6 +521,13 @@ def get_default_room_profile(preset_name):
         "loan_amount": 0,
         "inventory": {k: 0 for k in SHOP_ITEMS},
         "loot": {k: 0 for k in LOOT_ITEMS},
+        "pets": [],
+        "active_pet_id": None,
+        "pet_supplies": {},
+        "pet_trade_offer": None,
+        "payment_daily": {"date": "", "sent": 0},
+        "payment_history": [],
+        "bank_heist_cooldown": 0,
     }
 
 
@@ -513,6 +554,13 @@ def get_user_room_profile(all_data, username, room_code):
             if k not in prof["inventory"]: prof["inventory"][k] = v
         for k, v in def_prof["loot"].items():
             if k not in prof["loot"]: prof["loot"][k] = v
+        for k, v in def_prof.items():
+            if k not in prof:
+                prof[k] = v.copy() if isinstance(v, (dict, list)) else v
+        if not isinstance(prof.get("pets"), list): prof["pets"] = []
+        if not isinstance(prof.get("pet_supplies"), dict): prof["pet_supplies"] = {}
+        if not isinstance(prof.get("payment_daily"), dict): prof["payment_daily"] = {"date": "", "sent": 0}
+        if not isinstance(prof.get("payment_history"), list): prof["payment_history"] = []
     return u_obj["room_profiles"][room_code]
 
 
