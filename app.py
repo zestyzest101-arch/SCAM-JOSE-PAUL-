@@ -148,6 +148,8 @@ def character_id(profile):
 def award_xp(profile, amount):
     if character_id(profile) == "confused_citizen":
         amount = int(amount * 1.15)
+    if "_pet_bonus" in globals():
+        amount = _pet_bonus(profile, "xp", amount)
     core.add_xp(profile, amount)
 
 
@@ -165,7 +167,8 @@ def character_bonus(profile, activity, amount):
         ("sleeping_ceo", "crime"): 1.15,
         ("drip_lord", "daily"): 1.15,
     }
-    return int(amount * multipliers.get((cid, activity), 1.0))
+    adjusted = int(amount * multipliers.get((cid, activity), 1.0))
+    return _pet_bonus(profile, activity, adjusted) if "_pet_bonus" in globals() else adjusted
 
 
 # One active ability per character. All abilities use a one-hour cooldown.
@@ -775,6 +778,251 @@ def casino_result(game):
 
 
 # -------------------------- COMMAND HANDLER --------------------------
+# -------------------------- MULTIPLAYER HEIST / PAYMENTS / PETS --------------------------
+HEIST_ACTIONS = [
+    "Bluff your way through", "Make a dramatic escape", "Attempt the cartoon caper", "Negotiate with the clerk", "Try a ridiculous wildcard",
+    "Pretend you're an inspector", "Ask for the manager", "Challenge the clerk to chess", "Tell an elaborate excuse", "Request a timeout",
+    "Start an impromptu talent show", "Challenge the apprentice to riddles", "Ask about INVINGOPPA", "Offer a peace treaty", "Try to impress the clerk",
+    "Call a team meeting", "Let the NPC decide", "Ask for a clue", "Solve the mystery puzzle", "Use your character ability",
+    "Search for a fictional clue", "Choose the mystery answer", "Try a logic challenge", "Ask a teammate for help", "Request a hint",
+    "Propose a friendly competition", "Offer a trade", "Challenge the rival leader to trivia", "Request a joint challenge", "Make a ridiculous bet",
+    "Ask the visitor for directions", "Pretend everything is normal", "Explain the misunderstanding", "Invite the visitor to join the quiz", "Request a peaceful resolution",
+    "Face the final challenge", "Ask for one final chance", "Trust your luck", "Pull a mystery card", "Make an absurd declaration",
+    "Summon the Rizzler", "Call Uncle Jose", "Ask Sam da Baby for advice", "Trust the Ancient One", "Ask the Security Guard for a hint",
+    "Activate a pet's speciality", "Start a dance-off", "Challenge the bank mascot", "Offer a dramatic apology", "Say absolutely nothing",
+    "Request divine intervention", "Tell a terrible joke", "Ask for a group quiz", "Play rock-paper-scissors", "Choose the mystery envelope",
+]
+HEIST_SCENARIOS = [
+    {"title":"The clerk is staring directly at your crew.","type":"Clerk encounter"},
+    {"title":"INVINGOPPA'S FIRST APPRENTICE arrives with a clipboard and a very serious expression.","type":"Apprentice encounter"},
+    {"title":"INVINGOPPA'S SECOND APPRENTICE challenges the crew to an absurdly difficult logic test.","type":"Elite apprentice"},
+    {"title":"The bank mascot has started asking everyone for identification. It is a cardboard cut-out.","type":"Unexpected visitor"},
+    {"title":"A mysterious vault puzzle appears on the big screen. Nobody understands the instructions.","type":"Puzzle"},
+    {"title":"A rival crew appears and challenges your team to a ridiculous competition.","type":"Rival crew"},
+    {"title":"The bank's automated announcement system starts narrating your every move.","type":"Random event"},
+    {"title":"A VIP visitor mistakes your crew for the entertainment committee.","type":"Visitor"},
+    {"title":"The clerk announces a surprise inspection by the Department of Dramatic Paperwork.","type":"Inspection"},
+    {"title":"The elevator opens and INVINGOPPA himself steps out.","type":"INVINGOPPA encounter"},
+    {"title":"A giant question mark appears above the vault. The bank insists this is normal.","type":"Mystery vault"},
+    {"title":"The bank mascot has challenged everyone to a dance-off.","type":"Wildcard"},
+    {"title":"A confused NPC offers the crew a suspiciously helpful riddle.","type":"NPC event"},
+    {"title":"The apprentice clerks arrive together for a double challenge.","type":"Double apprentice"},
+]
+HEIST_OUTCOMES = [
+    ("Perfect Success", "The crew clears the challenge with style.", 1.30, "success"),
+    ("Lucky Success", "A ridiculous coincidence works in the crew's favour.", 1.18, "success"),
+    ("Clean Getaway", "The crew gets out of the encounter with a modest win.", 0.90, "success"),
+    ("Unexpected Jackpot", "A mystery bonus is added to the prize pool.", 1.55, "jackpot"),
+    ("Clerk Confused", "The clerk is too confused to continue. The crew advances.", 1.05, "success"),
+    ("Clerk Laughs", "The clerk laughs so hard that the crew gets another chance.", 1.10, "success"),
+    ("Apprentice Impressed", "The apprentice acknowledges the crew's creativity.", 1.25, "success"),
+    ("Apprentice Furious", "The apprentice calls for a harder challenge.", 0.75, "complication"),
+    ("INVINGOPPA Appears", "INVINGOPPA enters the story and raises the difficulty.", 0.70, "complication"),
+    ("INVINGOPPA's Approval", "The crew earns a rare stamp of approval.", 1.45, "jackpot"),
+    ("Mystery Vault", "A mystery prize is discovered.", 1.20, "loot"),
+    ("Bonus Safe", "A bonus cache adds extra coins.", 1.25, "jackpot"),
+    ("Fake Jackpot", "The glittering prize turns out to be a novelty coupon.", 0.65, "complication"),
+    ("Puzzle Solved", "The crew solves the puzzle and advances.", 1.12, "success"),
+    ("Puzzle Failed", "The puzzle resets and a complication appears.", 0.65, "complication"),
+    ("Rival Crew Outplayed", "The rival crew concedes the challenge.", 1.20, "success"),
+    ("Rival Crew Wins", "The rival crew takes the spotlight.", 0.60, "complication"),
+    ("Unexpected Ally", "A friendly NPC offers a useful bonus.", 1.15, "success"),
+    ("NPC Intervention", "The NPC presses a random button. Somehow it helps.", 1.05, "success"),
+    ("Character Moment", "A crew member's character speciality creates a bonus.", 1.20, "success"),
+    ("Lucky Coin Shower", "A harmless shower of bonus coins rains down.", 1.10, "success"),
+    ("Rare Collectible", "The crew discovers a rare collectible.", 1.0, "loot"),
+    ("Inspection Delay", "The inspection delays the crew and lowers the payout.", 0.75, "complication"),
+    ("Team Disagreement", "The crew cannot agree and loses some momentum.", 0.70, "complication"),
+    ("Teamwork Bonus", "The crew's coordination earns bonus XP.", 1.10, "xp"),
+    ("Dramatic Reversal", "The situation flips unexpectedly. The crew gets another challenge.", 0.90, "complication"),
+    ("Partial Success", "The crew salvages a smaller reward.", 0.65, "partial"),
+    ("Heist Abandoned", "The crew decides to call it a day. No payout.", 0.0, "failure"),
+    ("Total Defeat", "The crew loses the fictional challenge together.", 0.0, "failure"),
+    ("Legendary Ending", "An extremely rare ending unlocks a legendary prize.", 1.85, "jackpot"),
+    ("Secret Character Ending", "A character-specific event gives the crew a special prize.", 1.50, "jackpot"),
+    ("Double Apprentice Encounter", "Both apprentices team up for an elite challenge.", 0.70, "complication"),
+    ("Mysterious Envelope", "A sealed envelope contains random loot or coins.", 1.15, "loot"),
+    ("Unexpected Refund", "The bank's fictional system issues a surprise refund.", 1.08, "success"),
+    ("The Bank Remembers You", "The bank records the crew's visit and unlocks a future event.", 1.0, "special"),
+    ("Mascot's Blessing", "The bank mascot gives the crew a tiny lucky charm.", 1.12, "loot"),
+    ("Legendary Clerk Stamp", "The crew earns a collectible clerk stamp.", 1.35, "loot"),
+]
+
+
+def _today_key():
+    return time.strftime("%Y-%m-%d", time.localtime())
+
+
+def _active_city_members(data, room_code):
+    room = data["rooms"].get(room_code, {})
+    return [m for m in room.get("members", []) if m in data.get("users", {}) and data["users"][m].get("current_room") == room_code]
+
+
+def _heist_mail(data, room_code, names, subject, body):
+    for name in names:
+        if name in data.get("users", {}):
+            add_mail(get_profile(data, name, room_code), subject, body, "heist")
+
+
+def _heist_announce(room, message):
+    add_chat_message(room, "🏦 BANK HEIST SYSTEM", message, kind="system")
+
+
+def _heist_begin_round(data, room_code, room, heist):
+    scenario = random.choice(HEIST_SCENARIOS)
+    heist["round"] = int(heist.get("round", 0)) + 1
+    heist["scenario"] = scenario
+    # Five choices are drawn from the full 55+ action library, with no duplicates.
+    heist["choices"] = random.sample(HEIST_ACTIONS, 5)
+    heist["deadline"] = time.time() + 60
+    heist["status"] = "decision"
+    heist["last_result"] = None
+    names = heist.get("participants", [])
+    option_text = " | ".join(f"{i+1}. {x}" for i,x in enumerate(heist['choices']))
+    message = f"ROUND {heist['round']}: {scenario['title']} Options: {option_text}. Only {heist['leader']} may decide. Crew discussion: 60 seconds."
+    _heist_mail(data, room_code, names, f"BANK HEIST — ROUND {heist['round']}", message)
+    _heist_announce(room, message)
+
+
+def _heist_finish(data, room_code, room, heist, outcome):
+    names = list(heist.get("participants", []))
+    count = len(names)
+    # Total prize pool rises with team size; capped at 14 City members.
+    base_ranges = {2:(5000,12000),3:(9000,19000),4:(14000,28000),5:(20000,40000)}
+    if count <= 5:
+        low, high = base_ranges.get(count, (5000,12000))
+    else:
+        low, high = 20000 + (count-5)*6500, 40000 + (count-5)*10000
+    factor = float(outcome[2]) * float(heist.get("pending_factor", 1.0))
+    prize_pool = random.randint(low, high) * factor if factor > 0 else 0
+    prize_pool = int(prize_pool)
+    xp_each = 80 if factor >= 1 else 35 if factor > 0 else 0
+    loot_drop = random.choice(["clerk_trophy", "clerk_stamp", "golden_ticket", "mystery_box"]) if outcome[3] in ("loot", "jackpot") else None
+    # Rare outcomes may grant loot; only use valid catalogue keys.
+    if loot_drop not in core.LOOT_ITEMS:
+        loot_drop = random.choice(list(core.LOOT_ITEMS)) if outcome[3] in ("loot", "jackpot") else None
+    share = prize_pool // max(1, count)
+    for name in names:
+        if name not in data["users"]:
+            continue
+        p = get_profile(data, name, room_code)
+        p["fampay"] = int(p.get("fampay", 0)) + share
+        if xp_each:
+            xp_reward = _pet_bonus(p, "heist_xp", xp_each)
+            award_xp(p, xp_reward)
+        if loot_drop:
+            p.setdefault("loot", {})[loot_drop] = int(p.get("loot", {}).get(loot_drop, 0)) + 1
+        if factor > 0 and outcome[3] not in ("failure",):
+            p.setdefault("pet_quests", {})["multiplayer_event"] = True
+        add_mail(p, "BANK HEIST RESULTS", f"Outcome: {outcome[0]}. {outcome[1]} Team size: {count}. Your share: {share:,} coins. XP: {xp_each}. Loot: {core.LOOT_ITEMS[loot_drop]['name'] if loot_drop else 'None'}.", "heist")
+    _heist_announce(room, f"HEIST COMPLETE — {outcome[0]}. Crew: {', '.join(names)}. Total prize pool: {prize_pool:,} coins.")
+    heist.clear()
+    heist.update({"status":"cooldown_complete", "last_completed":time.time(), "last_outcome":outcome[0], "last_team":names, "last_prize_pool":prize_pool})
+
+
+def _heist_resolve(data, room_code, room, heist, choice_index=None, timeout=False):
+    choices = heist.get("choices", [])
+    if timeout or choice_index is None:
+        chosen = random.choice(choices) if choices else "The crew freezes and lets fate decide"
+    else:
+        chosen = choices[choice_index]
+    # Team size, encounter tier, and randomness influence the outcome.
+    count = len(heist.get("participants", []))
+    scenario_type = heist.get("scenario", {}).get("type", "Random event")
+    chance = min(0.78, 0.34 + 0.075 * count)
+    if "Apprentice" in scenario_type or "INVINGOPPA" in scenario_type:
+        chance -= 0.12
+    if "Double" in scenario_type:
+        chance -= 0.10
+    if timeout:
+        chance -= 0.08
+    for member in heist.get("participants", []):
+        member_profile = get_profile(data, member, room_code)
+        active_pet = next((p for p in member_profile.get("pets", []) if p.get("id") == member_profile.get("active_pet_id")), None)
+        if active_pet and core.PET_CATALOG.get(active_pet.get("species"), {}).get("bonus_activity") == "heist_defense":
+            _pet_decay(active_pet)
+            if min(active_pet.get("hunger", 0), active_pet.get("happiness", 0), active_pet.get("energy", 0)) >= 30:
+                chance += 0.025
+                break
+    if any("challenge" in chosen.lower() or "puzzle" in chosen.lower() or "quiz" in chosen.lower() for _ in [0]):
+        chance += 0.06
+    chance = max(0.12, min(0.82, chance))
+    roll = random.random()
+    if roll < chance * 0.035:
+        outcome = random.choice([o for o in HEIST_OUTCOMES if o[3] == "jackpot"])
+    elif roll < chance * 0.10:
+        outcome = random.choice([o for o in HEIST_OUTCOMES if o[0] in ("Legendary Ending", "Secret Character Ending", "The Bank Remembers You")])
+    elif roll < chance * 0.18:
+        outcome = random.choice([o for o in HEIST_OUTCOMES if o[3] == "failure"])
+    elif roll < chance:
+        outcome = random.choice([o for o in HEIST_OUTCOMES if o[3] in ("success", "loot", "xp", "special", "partial")])
+    else:
+        outcome = random.choice([o for o in HEIST_OUTCOMES if o[3] in ("complication", "partial", "failure")])
+    result_text = f"ROUND {heist.get('round',1)} — {chosen}. RESULT: {outcome[0]}. {outcome[1]}"
+    heist.setdefault("round_history", []).append({"choice":chosen,"outcome":outcome[0],"timestamp":time.time()})
+    heist["last_result"] = result_text
+    _heist_announce(room, result_text)
+    names = heist.get("participants", [])
+    _heist_mail(data, room_code, names, f"BANK HEIST — ROUND {heist.get('round',1)} RESULT", result_text)
+    if outcome[3] == "failure" or heist.get("round", 1) >= 3:
+        _heist_finish(data, room_code, room, heist, outcome)
+    else:
+        heist["status"] = "between_rounds"
+        heist["next_scenario"] = None
+        heist["deadline"] = 0
+        heist["pending_factor"] = max(0.25, min(1.75, float(heist.get("pending_factor", 1.0)) * max(0.5, float(outcome[2]))))
+
+
+def _heist_timeout_if_needed(data, room_code, room):
+    heist = room.get("multiplayer_bank_heist", {})
+    if heist.get("status") == "decision" and time.time() >= float(heist.get("deadline", 0)):
+        _heist_resolve(data, room_code, room, heist, timeout=True)
+        save(data)
+        return True
+    return False
+
+
+def _pet_decay(pet):
+    now = time.time()
+    last = float(pet.get("last_update", now))
+    elapsed_hours = max(0, (now - last) / 3600)
+    steps = int(elapsed_hours)
+    if steps:
+        pet["hunger"] = max(0, int(pet.get("hunger", 100)) - steps * 8)
+        pet["happiness"] = max(0, int(pet.get("happiness", 100)) - steps * 5)
+        pet["energy"] = max(0, int(pet.get("energy", 100)) - steps * 6)
+        pet["last_update"] = last + steps * 3600
+
+
+def _pet_bonus(profile, activity, amount):
+    active_id = profile.get("active_pet_id")
+    pet = next((p for p in profile.get("pets", []) if p.get("id") == active_id), None)
+    if not pet:
+        return amount
+    _pet_decay(pet)
+    if min(int(pet.get("hunger", 0)), int(pet.get("happiness", 0)), int(pet.get("energy", 0))) < 30:
+        return amount
+    spec = core.PET_CATALOG.get(pet.get("species"), {})
+    activity_key = spec.get("bonus_activity")
+    if activity_key in (activity, "random"):
+        level_scale = 1 + max(0, int(pet.get("level", 1)) - 1) * 0.05
+        return int(amount * (1 + float(spec.get("bonus", 0)) * level_scale))
+    return amount
+
+
+def _pet_find(profile, pet_id):
+    return next((p for p in profile.get("pets", []) if p.get("id") == pet_id), None)
+
+
+def _pet_adopt(profile, species):
+    spec = core.PET_CATALOG[species]
+    pet = {"id":secrets.token_hex(5),"species":species,"name":spec["name"],"level":1,"xp":0,"hunger":100,"happiness":100,"energy":100,"last_update":time.time(),"adopted_at":time.time()}
+    profile.setdefault("pets", []).append(pet)
+    if not profile.get("active_pet_id"):
+        profile["active_pet_id"] = pet["id"]
+    return pet
+
+
 def execute_command(data, username, room_code, room, profile, city_cfg, raw_command):
     parts = raw_command.strip().split()
     if not parts:
@@ -807,8 +1055,14 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("ABILITY / SPECIAL — Activate your selected character's unique power (1-hour cooldown)")
         say("DEPOSIT <amount> — Move FamPay into your bank")
         say("WITHDRAW <amount> — Take FamPay out of your bank")
-        say("BANK_HEIST — Enter a fictional bank encounter")
+        say("BANK_HEIST — Recruit your City for a multiplayer bank heist")
+        say("HEIST_ACCEPT — Join the active City heist")
+        say("HEIST_START — Leader starts the heist (minimum 2 players)")
+        say("HEIST_ACTION <1-5> — Leader chooses the current encounter action")
+        say("HEIST_CANCEL — Leader cancels recruitment before starting")
         say("CLERKS — Meet the bank clerks and view clerk encounters")
+        say("PAY <username> <amount> — Send wallet coins to a same-City player (10,000/day)")
+        say("PETS / PETSHOP — Browse 20 companions; PET <action> for care/training")
         say("")
         say("🎰 CASINO — 15 VIRTUAL-COIN GAMES")
         say("Use: CASINO <game> <amount>  |  CASINO LIST")
@@ -835,9 +1089,7 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("TAX_FRAUD — Play the fictional tax-office risk challenge")
         say("CRIME — High-risk fictional crime run: big payout, mugging, or character death")
         say("ROB <username> — Attempt a City robbery")
-        say("HEIST START — Start a group heist")
-        say("HEIST CONTRIBUTE <amount> — Add to the heist pool")
-        say("HEIST LAUNCH — Launch the group heist")
+        say("HEIST START / CONTRIBUTE / LAUNCH — Legacy contribution-pool mini-event (separate from BANK_HEIST story mode)")
         say("")
         say("💼 JOBS & MAILBOX")
         say("JOBS — Browse available jobs")
@@ -1282,23 +1534,333 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
         say("🏦 BANK CLERK ROSTER")
         for clerk in core.BANK_CLERKS:
             say(f"[{clerk['tier']}] {clerk['name']} · Reward {clerk['reward']:,} · Encounter risk {int(clerk['risk'] * 100)}%")
-        say("Use `bank_heist` for a random fictional clerk encounter.")
+        say("Use `bank_heist` to recruit your City for the multiplayer heist. The two INVINGOPPA apprentices are elite encounters.")
 
     elif cmd == "bank_heist":
-        clerk = random.choices(core.BANK_CLERKS, weights=[c["weight"] for c in core.BANK_CLERKS], k=1)[0]
-        say(f"🏦 BANK HEIST EVENT — {clerk['name']} ({clerk['tier']})")
-        if random.random() > clerk["risk"]:
-            reward = clerk["reward"]
-            drop = clerk["drop"]
-            profile["fampay"] += reward
-            profile["loot"][drop] = profile["loot"].get(drop, 0) + 1
-            award_xp(profile, 100)
-            say(f"The encounter was cleared! +{reward:,} coins, +100 XP, and {core.LOOT_ITEMS[drop]['name']}.")
+        _heist_timeout_if_needed(data, room_code, room)
+        existing = room.get("multiplayer_bank_heist", {})
+        if existing.get("status") in ("recruiting", "decision", "between_rounds"):
+            say("A City bank heist is already active. Use `heist_accept` to join if recruitment is open.")
+        elif time.time() < float(data["users"].get(username, {}).get("bank_heist_cooldown", 0)):
+            remain = int(data["users"].get(username, {}).get("bank_heist_cooldown", 0) - time.time())
+            say(f"Your next bank heist is available in {remain//3600}h {(remain%3600)//60}m.")
         else:
-            fine = min(profile["fampay"], max(500, clerk["reward"] // 5))
-            profile["fampay"] -= fine
-            say(f"The clerk caught the attempt. You paid a {fine:,}-coin game fine. No real-world instructions are involved.")
+            members = _active_city_members(data, room_code)
+            if len(members) < 2:
+                say("A bank heist needs a crew. Invite at least one other City member; solo heists are disabled.")
+            else:
+                heist = {"status":"recruiting","leader":username,"participants":[username],"created_at":time.time(),"round":0,"round_history":[],"pending_factor":1.0}
+                room["multiplayer_bank_heist"] = heist
+                invitees = list(members)
+                _heist_mail(data, room_code, invitees, "BANK HEIST INVITATION", f"{username} is recruiting a bank-heist crew in {room.get('name','this City')}. Type `HEIST_ACCEPT` to join. The leader will decide when to start.")
+                _heist_announce(room, f"🚨 {username} is recruiting a BANK HEIST crew! Type `HEIST_ACCEPT` to join. Minimum crew: 2. Leader: {username}.")
+                say(f"Recruitment opened! Invitations mailed to {len(invitees)} City member(s). Type `HEIST_START` when at least 2 players have joined.")
         commit()
+
+    elif cmd == "heist_accept":
+        heist = room.get("multiplayer_bank_heist", {})
+        if heist.get("status") != "recruiting":
+            say("There is no open bank-heist recruitment in this City.")
+        elif username == heist.get("leader") or username in heist.get("participants", []):
+            say("You're already part of this crew.")
+        elif username not in _active_city_members(data, room_code):
+            say("You must be an active member of this City to join.")
+        elif time.time() < float(data["users"].get(username, {}).get("bank_heist_cooldown", 0)):
+            remain = int(data["users"].get(username, {}).get("bank_heist_cooldown", 0) - time.time())
+            say(f"You are on bank-heist cooldown for another {remain//3600}h {(remain%3600)//60}m.")
+        elif len(heist.get("participants", [])) >= 14:
+            say("This crew is full.")
+        else:
+            heist.setdefault("participants", []).append(username)
+            _heist_announce(room, f"{username} joined {heist.get('leader')}'s bank-heist crew. Crew: {len(heist['participants'])}.")
+            _heist_mail(data, room_code, [heist.get("leader")], "NEW HEIST CREW MEMBER", f"{username} joined your crew. Current crew: {len(heist['participants'])}.")
+            say(f"You joined the crew! Current participants: {', '.join(heist['participants'])}.")
+        commit()
+
+    elif cmd == "heist_cancel":
+        heist = room.get("multiplayer_bank_heist", {})
+        if heist.get("status") != "recruiting" or heist.get("leader") != username:
+            say("Only the leader can cancel an active recruitment, and only before the heist starts.")
+        else:
+            names = list(heist.get("participants", []))
+            _heist_mail(data, room_code, names, "BANK HEIST CANCELLED", f"{username} cancelled the recruitment. No cooldown was applied.")
+            _heist_announce(room, f"{username} cancelled the bank-heist recruitment. No cooldown was applied.")
+            room.pop("multiplayer_bank_heist", None)
+            say("Recruitment cancelled. No participant received a cooldown.")
+        commit()
+
+    elif cmd == "heist_start":
+        heist = room.get("multiplayer_bank_heist", {})
+        if heist.get("status") != "recruiting":
+            say("There is no recruiting heist to start.")
+        elif heist.get("leader") != username:
+            say(f"Only {heist.get('leader')} can start this heist.")
+        elif len(heist.get("participants", [])) < 2:
+            say("You cannot start alone. At least 2 players must accept.")
+        else:
+            eligible = []
+            for member in heist["participants"]:
+                if member in _active_city_members(data, room_code):
+                    mp = get_profile(data, member, room_code)
+                    if time.time() >= float(data["users"].get(member, {}).get("bank_heist_cooldown", 0)):
+                        eligible.append(member)
+            heist["participants"] = eligible
+            if len(eligible) < 2:
+                say("Fewer than 2 eligible players remain. Recruit another City member.")
+            else:
+                for member in eligible:
+                    data["users"].setdefault(member, {})["bank_heist_cooldown"] = time.time() + 12 * 3600
+                    get_profile(data, member, room_code)["bank_heist_cooldown"] = time.time() + 12 * 3600
+                heist["status"] = "decision"
+                heist["round"] = 0
+                heist["round_history"] = []
+                heist["pending_factor"] = 1.0
+                _heist_announce(room, f"🏦 BANK HEIST STARTED! Leader: {username}. Crew: {', '.join(eligible)}.")
+                _heist_begin_round(data, room_code, room, heist)
+                say(f"Heist started with {len(eligible)} players. Round 1: {heist['scenario']['title']}")
+                for i, choice in enumerate(heist["choices"], 1): say(f"{i}. {choice}")
+                say("Only the leader may submit `HEIST_ACTION <1-5>`. The crew has 60 seconds to discuss.")
+        commit()
+
+    elif cmd == "heist_action":
+        _heist_timeout_if_needed(data, room_code, room)
+        heist = room.get("multiplayer_bank_heist", {})
+        if heist.get("status") != "decision":
+            say("There is no active decision round. The leader may use `HEIST_NEXT` after a completed encounter.")
+        elif heist.get("leader") != username:
+            say("Only the Heist Leader can decide the crew's action. Discuss your ideas in City Chat!")
+        elif time.time() >= float(heist.get("deadline", 0)):
+            say("The 60-second decision window expired. A random outcome has already been selected.")
+        else:
+            try: index = int(args[0]) - 1 if args else -1
+            except ValueError: index = -1
+            if not 0 <= index < 5:
+                say("Choose one of the five displayed options: `HEIST_ACTION 1` through `HEIST_ACTION 5`.")
+            else:
+                chosen = heist.get("choices", [])[index]
+                _heist_resolve(data, room_code, room, heist, choice_index=index)
+                say(f"Leader chose: {chosen}.")
+                if heist.get("status") == "between_rounds":
+                    say(heist.get("last_result", "Encounter resolved."))
+                    say("The next round is ready. Leader: use `HEIST_NEXT` when the crew is ready.")
+                else:
+                    say("The heist has concluded. Check your mailbox for your individual result.")
+        commit()
+
+    elif cmd == "heist_next":
+        heist = room.get("multiplayer_bank_heist", {})
+        if heist.get("status") != "between_rounds" or heist.get("leader") != username:
+            say("Only the leader can start the next round after an encounter has resolved.")
+        else:
+            _heist_begin_round(data, room_code, room, heist)
+            say(f"ROUND {heist['round']}: {heist['scenario']['title']}")
+            for i, choice in enumerate(heist["choices"], 1): say(f"{i}. {choice}")
+            say("60 seconds. Only the leader can submit `HEIST_ACTION <1-5>`.")
+        commit()
+
+    elif cmd == "pay":
+        if len(args) < 2:
+            say("Usage: `pay <username> <amount>`. Payments are same-City only and wallet-only.")
+        else:
+            target = args[0]
+            try: amount = int(args[1])
+            except ValueError: amount = 0
+            daily = data["users"].setdefault(username, {}).setdefault("payment_daily", {"date":"", "sent":0})
+            if daily.get("date") != _today_key(): daily.update({"date":_today_key(),"sent":0})
+            sent_today = int(daily.get("sent", 0))
+            if target == username: say("You cannot pay yourself.")
+            elif target not in _active_city_members(data, room_code): say("Payments are only available to players currently in your City.")
+            elif amount <= 0: say("Enter a positive whole-number payment.")
+            elif amount > int(profile.get("fampay", 0)): say("Insufficient FamPay wallet balance. Bank funds cannot be used.")
+            elif sent_today + amount > 10000: say(f"Daily payment cap: 10,000 coins. You have {max(0,10000-sent_today):,} coins left to send today.")
+            else:
+                recipient = get_profile(data, target, room_code)
+                profile["fampay"] -= amount
+                recipient["fampay"] = int(recipient.get("fampay", 0)) + amount
+                daily["sent"] = sent_today + amount
+                ref = secrets.token_hex(4).upper()
+                stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                record = {"reference":ref,"from":username,"to":target,"amount":amount,"timestamp":time.time()}
+                profile.setdefault("payment_history", []).append(record)
+                recipient.setdefault("payment_history", []).append(record)
+                profile["payment_history"] = profile["payment_history"][-50:]
+                recipient["payment_history"] = recipient["payment_history"][-50:]
+                add_mail(profile, "PAYMENT SENT", f"You sent {amount:,} coins to {target}. Ref: {ref}. Time: {stamp}.", "payment")
+                add_mail(recipient, "PAYMENT RECEIVED", f"You received {amount:,} coins from {username}. Ref: {ref}. Time: {stamp}.", "payment")
+                say(f"Payment complete: {amount:,} coins sent to {target}. Reference: {ref}. Your daily sent total is {daily['sent']:,}/10,000.")
+                _heist_announce(room, f"💸 {username} sent a payment to {target}.")
+            commit()
+
+    elif cmd in ("pets", "petshop"):
+        say("🐾 PAUL'S PET PARADISE — 20 companions")
+        for rarity in ("Common", "Uncommon", "Rare", "Legendary"):
+            names = [f"{v['name']} ({v['game']})" for k,v in core.PET_CATALOG.items() if v['rarity']==rarity]
+            say(f"{rarity}: " + ", ".join(names))
+        say("Use `pet adopt <pet_id>` for available coin/quest pets. `pet supplies` lists care items.")
+
+    elif cmd == "pet":
+        sub = args[0].lower() if args else "list"
+        pets = profile.setdefault("pets", [])
+        if sub == "quest":
+            quests = {
+                "harvest": ("starter_harvest", "Starter Harvest", "Spend 500 coins on supplies and complete a 60% harvest challenge."),
+                "jump": ("jumping_puzzle", "Jumping Puzzle", "Complete a timing puzzle to unlock Mini Mario."),
+                "collectible": ("hidden_collectible", "Hidden Collectible", "Find a hidden City collectible to unlock Korok."),
+                "resilience": ("resilience", "Resilience Trial", "Pass a resilience challenge to unlock Little Knight."),
+                "arcade": ("arcade", "Arcade Challenge", "Win a fictional arcade challenge to unlock Mugman."),
+                "multiplayer": ("multiplayer_event", "City Team Event", "Complete a multiplayer bank heist with a successful result to unlock Mini D.Va."),
+                "riddle": ("riddle", "Mailbox Riddle", "Solve a secret riddle to unlock Sans."),
+                "exploration": ("exploration", "Exploration Trail", "Pass an exploration challenge to unlock Teemo."),
+            }
+            if len(args) == 1:
+                say("PET QUESTS — " + " | ".join(f"{k}: {v[1]}" for k,v in quests.items()))
+                say("Use `pet quest <name>` to attempt a quest. City Team Event is unlocked by completing a successful multiplayer heist.")
+            elif args[1].lower() not in quests:
+                say("Quest not found. Use `pet quest` to see available quests.")
+            else:
+                qkey, qname, qdesc = quests[args[1].lower()]
+                profile.setdefault("pet_quests", {})
+                if profile["pet_quests"].get(qkey): say(f"{qname} is already complete.")
+                elif qkey == "multiplayer_event": say("Complete a successful multiplayer bank heist to unlock this quest.")
+                else:
+                    fee = 500
+                    if profile.get("fampay",0) < fee: say("You need 500 coins to enter a pet quest.")
+                    else:
+                        profile["fampay"] -= fee
+                        success = random.random() < (0.62 if qkey in ("jumping_puzzle","riddle") else 0.72)
+                        if success:
+                            profile["pet_quests"][qkey] = True
+                            say(f"QUEST COMPLETE: {qname}! You unlocked a new adoption path.")
+                        else: say(f"{qname} challenge not completed this time. Try again later; the 500-coin entry fee was used.")
+            commit()
+        elif sub == "list":
+            say(f"🐾 YOUR PET COLLECTION — {len(pets)}/5")
+            for pet in pets:
+                _pet_decay(pet)
+                spec = core.PET_CATALOG.get(pet.get("species"), {})
+                active = " · ACTIVE" if pet.get("id") == profile.get("active_pet_id") else ""
+                say(f"{pet.get('name',spec.get('name','Pet'))} · Lv.{pet.get('level',1)} · Hunger {pet.get('hunger',0)} · Happiness {pet.get('happiness',0)} · Energy {pet.get('energy',0)}{active}")
+            if not pets: say("You haven't adopted a pet yet. Visit `petshop`.")
+        elif sub == "supplies":
+            say("PET SUPPLIES")
+            for key,(label,price) in core.PET_SUPPLIES.items(): say(f"{key} — {label}: {price:,} coins")
+        elif sub == "adopt" and len(args) > 1:
+            species = args[1].lower()
+            spec = core.PET_CATALOG.get(species)
+            if not spec: say("Pet not found. Use `petshop` to see the collection.")
+            elif len(pets) >= 5: say("Your pet collection is full (5/5). Trade a pet before adopting another.")
+            elif any(p.get("species") == species for p in pets): say("You already own this pet. Duplicates must be traded, not adopted twice.")
+            elif species == "junimo" and not profile.get("pet_quests", {}).get("starter_harvest"): say("Quest required: complete the starter harvest quest first.")
+            elif species == "mini_mario" and not profile.get("pet_quests", {}).get("jumping_puzzle"): say("Quest required: complete the jumping puzzle first.")
+            elif species == "korok" and not profile.get("pet_quests", {}).get("hidden_collectible"): say("Quest required: find a hidden City collectible first.")
+            elif species == "little_knight" and not profile.get("pet_quests", {}).get("resilience"): say("Quest required: complete the resilience challenge first.")
+            elif species == "mini_chamber" and int(profile.get("level",1)) < 5: say("Mini Chamber unlocks at Level 5.")
+            elif species == "mugman" and not profile.get("pet_quests", {}).get("arcade"): say("Quest required: complete the special arcade quest first.")
+            elif species == "mini_dva" and not profile.get("pet_quests", {}).get("multiplayer_event"): say("Quest required: win a multiplayer City event first.")
+            elif species == "sans" and not profile.get("pet_quests", {}).get("riddle"): say("Quest required: solve the secret mailbox riddle first.")
+            elif species == "teemo" and not profile.get("pet_quests", {}).get("exploration"): say("Quest required: complete the exploration quest first.")
+            elif species == "peely" and not profile.get("pet_quests", {}).get("seasonal") and spec["price"] <= 0: say("Peely is available during a seasonal event.")
+            elif int(profile.get("fampay",0)) < int(spec["price"]): say(f"You need {spec['price']:,} coins to adopt {spec['name']}.")
+            else:
+                profile["fampay"] -= int(spec["price"])
+                pet = _pet_adopt(profile, species)
+                say(f"Adopted {pet['name']} from {spec['game']}! It is now Level 1. Use `pet activate {pet['id']}` to select it.")
+            commit()
+        elif sub == "activate" and len(args) > 1:
+            pet = _pet_find(profile, args[1])
+            if not pet: say("Pet ID not found. Use `pet list`.")
+            else:
+                profile["active_pet_id"] = pet["id"]
+                say(f"{pet['name']} is now your active companion.")
+            commit()
+        elif sub == "rename" and len(args) > 2:
+            pet = _pet_find(profile, args[1])
+            new_name = " ".join(args[2:])[:24]
+            if not pet: say("Pet ID not found.")
+            elif not new_name: say("Enter a name.")
+            else: pet["name"] = new_name; say(f"Pet renamed to {new_name}.")
+            commit()
+        elif sub == "buy" and len(args) > 1:
+            key = args[1].lower()
+            if key not in core.PET_SUPPLIES: say("Supply not found. Use `pet supplies`.")
+            else:
+                label, price = core.PET_SUPPLIES[key]
+                if profile["fampay"] < price: say(f"You need {price:,} coins.")
+                else:
+                    profile["fampay"] -= price
+                    supplies = profile.setdefault("pet_supplies", {})
+                    supplies[key] = int(supplies.get(key,0)) + 1
+                    say(f"Bought {label}. You now have {supplies[key]}.")
+            commit()
+        elif sub in ("feed", "play", "rest", "train") and len(args) > 1:
+            pet = _pet_find(profile, args[1])
+            if not pet: say("Pet ID not found. Use `pet list`.")
+            else:
+                _pet_decay(pet)
+                if sub == "feed":
+                    item = args[2].lower() if len(args)>2 else core.PET_CATALOG.get(pet['species'],{}).get('care_item','snack')
+                    supplies = profile.setdefault("pet_supplies", {})
+                    if supplies.get(item,0) <= 0: say(f"You need `{item}`. Buy it using `pet buy {item}`. Use `pet supplies` for the list.")
+                    else:
+                        supplies[item] -= 1; pet["hunger"] = min(100,pet.get("hunger",0)+35); pet["happiness"] = min(100,pet.get("happiness",0)+5); say(f"You fed {pet['name']}. Hunger and happiness improved.")
+                elif sub == "play":
+                    pet["happiness"] = min(100,pet.get("happiness",0)+25); pet["energy"] = max(0,pet.get("energy",0)-12); say(f"You played with {pet['name']}. Happiness increased; energy dipped a little.")
+                elif sub == "rest":
+                    pet["energy"] = min(100,pet.get("energy",0)+35); say(f"{pet['name']} rested and regained energy.")
+                else:
+                    if pet.get("energy",0) < 20: say("Your pet needs more energy before training.")
+                    else:
+                        pet["energy"] -= 20; pet["xp"] = int(pet.get("xp",0))+50
+                        if pet["xp"] >= int(pet.get("level",1))*150 and pet.get("level",1)<5:
+                            pet["xp"] -= int(pet.get("level",1))*150; pet["level"] += 1; say(f"{pet['name']} reached Level {pet['level']}!")
+                        else: say(f"Training complete! {pet['name']} gained 50 pet XP.")
+                pet["last_update"] = time.time()
+            commit()
+        elif sub == "trade" and len(args) > 2:
+            target, pet_id = args[1], args[2]
+            pet = _pet_find(profile, pet_id)
+            if target == username or target not in _active_city_members(data, room_code): say("Pet trades are only allowed with another player in your City.")
+            elif not pet: say("Pet ID not found.")
+            elif profile.get("pet_trade_offer"): say("You already have a pending pet trade.")
+            else:
+                other = get_profile(data,target,room_code)
+                if other.get("pet_trade_offer"): say("That player already has a pending pet trade.")
+                elif len(other.get("pets",[])) >= 5: say("That player's pet collection is full.")
+                else:
+                    profile["pet_trade_offer"]={"to":target,"pet_id":pet_id,"from":username,"created_at":time.time()}
+                    add_mail(other,"PET TRADE OFFER",f"{username} offers you {pet['name']}. Type `pet accept {username}` to accept or `pet decline {username}` to decline.","pet_trade")
+                    say(f"Trade offer sent to {target}. They must accept before the pet moves.")
+            commit()
+        elif sub == "cancel_trade":
+            offer = profile.get("pet_trade_offer")
+            if not offer: say("You have no outgoing pet trade offer.")
+            else:
+                target = offer.get("to")
+                profile["pet_trade_offer"] = None
+                if target in _active_city_members(data, room_code):
+                    add_mail(get_profile(data,target,room_code),"PET TRADE CANCELLED",f"{username} cancelled the pet trade offer.","pet_trade")
+                say("Your pet trade offer was cancelled.")
+            commit()
+        elif sub in ("accept","decline") and len(args)>1:
+            sender=args[1]; sender_profile=get_profile(data,sender,room_code) if sender in _active_city_members(data,room_code) else None
+            offer=sender_profile.get("pet_trade_offer") if sender_profile else None
+            if not offer or offer.get("to")!=username: say("No matching pet trade offer was found.")
+            elif sub=="decline":
+                sender_profile["pet_trade_offer"]=None; add_mail(sender_profile,"PET TRADE DECLINED",f"{username} declined your pet trade offer.","pet_trade"); say("Trade declined.")
+            else:
+                pet=_pet_find(sender_profile,offer.get("pet_id"))
+                if len(pets)>=5: say("Your collection is full. Make room before accepting.")
+                elif not pet: say("The offered pet is no longer available.")
+                else:
+                    sender_profile["pets"].remove(pet); pets.append(pet)
+                    if sender_profile.get("active_pet_id")==pet["id"]: sender_profile["active_pet_id"]=None
+                    sender_profile["pet_trade_offer"]=None
+                    add_mail(sender_profile,"PET TRADE COMPLETE",f"{username} accepted the trade. {pet['name']} is now in their collection.","pet_trade")
+                    add_mail(profile,"PET TRADE COMPLETE",f"You received {pet['name']} from {sender}.","pet_trade")
+                    say(f"Trade complete! {pet['name']} is now yours.")
+            commit()
+        else:
+            say("Pet commands: `pet list`, `pet adopt <pet_id>`, `pet activate <id>`, `pet rename <id> <name>`, `pet buy <supply>`, `pet feed/play/rest/train <id>`, `pet trade <username> <id>`, `pet accept/decline <username>`, `pet cancel_trade`.")
 
     elif cmd == "daily":
         now = time.time()
@@ -1309,9 +1871,11 @@ def execute_command(data, username, room_code, room, profile, city_cfg, raw_comm
             reward = 1000 + profile.get("daily_streak", 0) * 100
             reward = character_bonus(profile, "daily", reward)
             profile["fampay"] += reward
+            daily_xp = _pet_bonus(profile, "daily_xp", 25)
+            award_xp(profile, daily_xp)
             profile["last_daily"] = now
             profile["daily_streak"] = profile.get("daily_streak", 0) + 1
-            say(f"Daily reward claimed: +{reward:,} coins.")
+            say(f"Daily reward claimed: +{reward:,} coins and +{daily_xp} XP.")
             commit()
 
     elif cmd == "beg":
@@ -1592,7 +2156,10 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
 - `casino <game> <amount>` — play a virtual-coin mini-game. `casino list` shows games.
 - `crypto` — view the fictional SCAMCOIN market; use its buy/sell subcommands.
 - `tax_fraud` — fictional random tax-office event.
-- `bank_heist` / `clerks` — fictional bank encounter and clerk roster.
+- `bank_heist`, `heist_accept`, `heist_start`, `heist_action 1-5`, `heist_next`, `heist_cancel` — City-wide story-based bank heist. Minimum 2 players; leader-only decisions; 60-second rounds; 12-hour participant cooldown.
+- `pet quest` — browse adoption quests; `pet quest <name>` — attempt one.
+- `pay <username> <amount>` — send wallet-only coins to a same-City player; 10,000 daily cap.
+- `petshop` / `pet` — adopt and care for pets, train them, and trade with City members.
 
 **CITY & SOCIAL**
 - `rob <username>` — attempt a fictional player-to-player wallet robbery within your City.
@@ -1673,7 +2240,33 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
     metric3.metric("Level", profile["level"])
     metric4.metric("XP", f"{profile['xp']}/{profile['level'] * 300}")
 
-    game_tab, chat_tab = st.tabs(["🎮 GAME", "💬 CITY CHAT"])
+    # Resolve expired heist decision windows whenever a member refreshes the app.
+    _heist_timeout_if_needed(data, room_code, room)
+    active_heist = room.get("multiplayer_bank_heist", {})
+    if active_heist.get("status") in ("recruiting", "decision", "between_rounds"):
+        with st.container(border=True):
+            st.markdown("### 🏦 LIVE CITY BANK HEIST")
+            st.write(f"**Leader:** {active_heist.get('leader')} · **Crew:** {', '.join(active_heist.get('participants', []))}")
+            if active_heist.get("status") == "recruiting":
+                st.info("Recruitment is open. Players can type `HEIST_ACCEPT`. The leader starts with `HEIST_START`.")
+            elif active_heist.get("status") == "decision":
+                st.warning(f"ROUND {active_heist.get('round', 1)} · {active_heist.get('scenario', {}).get('title', '')}")
+                remaining = max(0, int(float(active_heist.get('deadline', 0)) - time.time()))
+                st.markdown(f"**Decision window: {remaining} seconds** · Only the leader can decide.")
+                timer_html = f"""<div style='font:700 20px monospace;color:#f0c36d'>⏳ <span id='heist-countdown'>{remaining}</span>s remaining</div><script>(function(){{let n={remaining};const el=document.getElementById('heist-countdown');const t=setInterval(()=>{{n=Math.max(0,n-1);if(el)el.textContent=n;if(n<=0){{clearInterval(t);try{{window.parent.location.reload();}}catch(e){{}}}}}},1000);}})();</script>"""
+                st.components.v1.html(timer_html, height=42)
+                for i, choice in enumerate(active_heist.get("choices", []), 1):
+                    st.write(f"{i}. {choice}")
+                st.caption("Discuss in City Chat. Leader submits `HEIST_ACTION 1` through `HEIST_ACTION 5`.")
+                if st.button("↻ Refresh heist timer", key="refresh_heist_timer"):
+                    st.rerun()
+            elif active_heist.get("status") == "between_rounds":
+                st.info(active_heist.get("last_result", "The encounter is complete."))
+                if username == active_heist.get("leader"):
+                    if st.button("Start next round", key="heist_next_round"):
+                        execute_command(data, username, room_code, room, profile, city_cfg, "heist_next")
+                        st.rerun()
+    game_tab, chat_tab, people_tab, pets_tab = st.tabs(["🎮 GAME", "💬 CITY CHAT", "👥 PEOPLE & PAYMENTS", "🐾 PETS"])
 
     with game_tab:
         left, right = st.columns([1.65, 1])
@@ -1832,6 +2425,127 @@ def game_screen(data, username, account, room, profile, room_code, city_cfg):
             add_chat_message(room, username, chat_text.strip())
             save(data)
             st.rerun()
+
+    with people_tab:
+        st.markdown("### 👥 City Members & Wallet Payments")
+        st.caption("Profiles reveal wallet balance and bag only. Bank balance remains private.")
+        city_members = [m for m in _active_city_members(data, room_code) if m != username]
+        if not city_members:
+            st.info("No other active players are in this City yet.")
+        else:
+            for member in city_members:
+                member_prof = get_profile(data, member, room_code)
+                active_pet = next((p for p in member_prof.get("pets", []) if p.get("id") == member_prof.get("active_pet_id")), None)
+                active_pet_name = active_pet.get("name") if active_pet else "No active pet"
+                if st.button(f"👤 {member} · {active_pet_name} · View profile", key=f"open_profile_{member}", use_container_width=True):
+                    st.session_state["profile_view_target"] = member
+            selected_player = st.session_state.get("profile_view_target")
+            if selected_player not in city_members:
+                selected_player = city_members[0]
+            target_profile = get_profile(data, selected_player, room_code)
+            target_char = next((x for x in CHARACTERS if x[0] == target_profile.get("character_id")), None)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Player", selected_player)
+            c2.metric("Wallet", f"🪙 {int(target_profile.get('fampay',0)):,}")
+            c3.metric("Level", int(target_profile.get("level",1)))
+            if target_char: st.caption(f"Character: {target_char[1]}")
+            st.markdown("**Bag / inventory**")
+            inv = target_profile.get("inventory", {})
+            loot = target_profile.get("loot", {})
+            bag_items = [(core.SHOP_ITEMS.get(k,{}).get("name",k),v) for k,v in inv.items() if int(v)>0]
+            bag_items += [(core.LOOT_ITEMS.get(k,{}).get("name",k),v) for k,v in loot.items() if int(v)>0]
+            st.write(" · ".join(f"{name} ×{count}" for name,count in bag_items) if bag_items else "Bag is empty.")
+            target_pets = target_profile.get("pets", [])
+            if target_pets:
+                st.write("**Pets:** " + ", ".join(f"{p.get('name','Pet')} (Lv.{p.get('level',1)})" + (" ★ Active" if p.get("id")==target_profile.get("active_pet_id") else "") for p in target_pets))
+            else:
+                st.write("**Pets:** None")
+            st.divider()
+            st.markdown("**Send FamPay**")
+            daily = data["users"].setdefault(username, {}).setdefault("payment_daily", {"date":"","sent":0})
+            if daily.get("date") != _today_key(): daily.update({"date":_today_key(),"sent":0})
+            remaining_limit = max(0,10000-int(daily.get("sent",0)))
+            st.caption(f"Wallet: {int(profile.get('fampay',0)):,} · Daily sending allowance remaining: {remaining_limit:,}/10,000 coins")
+            with st.form("player_payment_form", clear_on_submit=True):
+                pay_amount = st.number_input("Amount to send", min_value=1, max_value=max(1,min(10000,int(profile.get("fampay",0)),remaining_limit)), value=1, step=100)
+                pay_submit = st.form_submit_button(f"💸 PAY {selected_player}", type="primary", use_container_width=True)
+            if pay_submit:
+                execute_command(data, username, room_code, room, profile, city_cfg, f"pay {selected_player} {int(pay_amount)}")
+                st.success("Payment command processed. Check your mailbox for the receipt.")
+                save(data)
+                st.rerun()
+            with st.expander("Recent payment history"):
+                history = profile.get("payment_history", [])
+                if not history: st.caption("No payments yet.")
+                for item in reversed(history[-10:]):
+                    direction = "Sent" if item.get("from")==username else "Received"
+                    st.write(f"{direction} {int(item.get('amount',0)):,} coins · {item.get('from')} → {item.get('to')} · Ref {item.get('reference')}")
+
+    with pets_tab:
+        st.markdown("### 🐾 PAUL'S PET PARADISE")
+        st.caption("Collect up to five pets. One active companion provides a bonus. Care stats decay gradually; pets never die or disappear.")
+        pet_col1, pet_col2 = st.columns([1.2,1])
+        with pet_col1:
+            st.markdown("#### Your collection")
+            pets = profile.setdefault("pets", [])
+            for pet in pets:
+                _pet_decay(pet)
+                spec = core.PET_CATALOG.get(pet.get("species"), {})
+                active = pet.get("id") == profile.get("active_pet_id")
+                with st.container(border=True):
+                    st.markdown(f"**{pet.get('name',spec.get('name','Pet'))}** · {spec.get('game','Game')} · {spec.get('rarity','Common')} {'⭐ ACTIVE' if active else ''}")
+                    st.caption(f"Level {pet.get('level',1)} · {spec.get('speciality','Companion')} · {spec.get('description','')}")
+                    st.progress(max(0,min(100,int(pet.get('hunger',0))))/100, text=f"Hunger {int(pet.get('hunger',0))}/100")
+                    st.progress(max(0,min(100,int(pet.get('happiness',0))))/100, text=f"Happiness {int(pet.get('happiness',0))}/100")
+                    st.progress(max(0,min(100,int(pet.get('energy',0))))/100, text=f"Energy {int(pet.get('energy',0))}/100")
+                    b1,b2,b3,b4 = st.columns(4)
+                    if b1.button("Feed",key=f"pet_feed_{pet['id']}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet feed {pet['id']}"); save(data); st.rerun()
+                    if b2.button("Play",key=f"pet_play_{pet['id']}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet play {pet['id']}"); save(data); st.rerun()
+                    if b3.button("Rest",key=f"pet_rest_{pet['id']}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet rest {pet['id']}"); save(data); st.rerun()
+                    if b4.button("Train",key=f"pet_train_{pet['id']}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet train {pet['id']}"); save(data); st.rerun()
+                    if not active and st.button("Set active",key=f"pet_activate_{pet['id']}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet activate {pet['id']}"); save(data); st.rerun()
+            if not pets: st.info("No pets yet. Adopt your first companion from the catalogue.")
+        with pet_col2:
+            st.markdown("#### Adoption catalogue")
+            for rarity in ("Common","Uncommon","Rare","Legendary"):
+                with st.expander(f"{rarity} pets", expanded=(rarity=="Common")):
+                    for species,spec in core.PET_CATALOG.items():
+                        if spec["rarity"] != rarity: continue
+                        st.markdown(f"**{spec['name']}** · {spec['game']}")
+                        st.caption(f"{spec['speciality']} · +{int(spec['bonus']*100)}% {spec['bonus_activity']} · {spec['adoption']}")
+                        st.caption(spec["description"])
+                        owned = any(p.get("species")==species for p in pets)
+                        if st.button(f"Adopt · {spec['price']:,} coins",key=f"adopt_{species}",disabled=owned or len(pets)>=5 or profile.get('fampay',0)<spec['price']):
+                            execute_command(data,username,room_code,room,profile,city_cfg,f"pet adopt {species}"); save(data); st.rerun()
+            with st.expander("Pet supplies"):
+                for key,(label,price) in core.PET_SUPPLIES.items():
+                    if st.button(f"Buy {label} · {price:,}",key=f"supply_{key}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet buy {key}"); save(data); st.rerun()
+                st.caption("Your supplies: " + (", ".join(f"{core.PET_SUPPLIES.get(k,(k,0))[0]} ×{v}" for k,v in profile.get('pet_supplies',{}).items() if v) or "none"))
+            with st.expander("Trade a pet"):
+                if pets:
+                    trade_target = st.selectbox("Trade with", city_members, key="pet_trade_target") if city_members else None
+                    trade_pet = st.selectbox("Your pet", [p['id'] for p in pets], format_func=lambda pid: next((p['name'] for p in pets if p['id']==pid),pid), key="pet_trade_pet")
+                    if trade_target and st.button("Send trade offer",key="send_pet_trade"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet trade {trade_target} {trade_pet}"); save(data); st.rerun()
+                else: st.caption("Adopt a pet before trading.")
+                incoming=[]
+                for sender in city_members:
+                    offer=get_profile(data,sender,room_code).get("pet_trade_offer")
+                    if offer and offer.get("to")==username: incoming.append((sender,offer))
+                for sender,offer in incoming:
+                    pet=_pet_find(get_profile(data,sender,room_code),offer.get("pet_id"))
+                    st.write(f"Offer from **{sender}**: {pet.get('name') if pet else 'Pet unavailable'}")
+                    ca,cd=st.columns(2)
+                    if ca.button("Accept",key=f"accept_trade_{sender}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet accept {sender}"); save(data); st.rerun()
+                    if cd.button("Decline",key=f"decline_trade_{sender}"):
+                        execute_command(data,username,room_code,room,profile,city_cfg,f"pet decline {sender}"); save(data); st.rerun()
 
     save(data)
     st.caption("SCAM JOSE PAUL · Web edition · City progress is saved separately for each player and City.")
