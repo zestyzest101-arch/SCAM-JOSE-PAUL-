@@ -766,3 +766,72 @@ body.touch #lock-overlay {
     font-size: 1.6rem;
   }
 }
+
+/* --------------------------------------------------------- multiplayer */
+#chat {
+  position: fixed;
+  left: 16px;
+  bottom: 96px;
+  width: min(340px, 62vw);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 168px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.chat-line {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(10, 8, 18, 0.62);
+  color: #f4f1ff;
+  word-break: break-word;
+}
+
+.chat-line strong {
+  color: #ffd166;
+}
+
+.chat-line.system {
+  color: #b9b3cc;
+  font-style: italic;
+  background: rgba(10, 8, 18, 0.4);
+}
+
+#chat-input {
+  width: 100%;
+  padding: 8px 11px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 8, 18, 0.72);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+#chat-input:focus {
+  border-color: rgba(255, 61, 129, 0.75);
+}
+
+@media (max-width: 720px) {
+  #chat {
+    bottom: 150px;
+    width: min(260px, 58vw);
+  }
+
+  .chat-log {
+    max-height: 120px;
+  }
+}

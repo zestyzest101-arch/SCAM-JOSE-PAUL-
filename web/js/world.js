@@ -528,6 +528,7 @@ export class World {
     this._raf = requestAnimationFrame(() => this._loop());
     const dt = Math.min(this._clock.getDelta(), 0.05);
     if (this.controls) this.controls.update(dt);
+    this._updateRemotes();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -536,6 +537,7 @@ export class World {
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = 0;
     window.removeEventListener("resize", this._resizeHandler);
+    this.clearRemotePlayers();
     if (this.controls) {
       this.controls.dispose();
       this.controls = null;

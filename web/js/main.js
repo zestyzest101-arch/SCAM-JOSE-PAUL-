@@ -2,6 +2,7 @@
 import { api, getToken, setToken, clearToken } from "./api.js";
 import { buildCity } from "./city.js";
 import { World } from "./world.js";
+import { CitySocket } from "./net.js";
 import { Phone } from "./phone.js";
 
 const $ = (id) => document.getElementById(id);
@@ -16,6 +17,9 @@ const state = {
   characters: [],
   layout: null,
   world: null,
+  net: null,
+  online: 1,
+  netStatus: "offline",
   phone: null,
   waypoint: null,
   authMode: "login",
@@ -288,6 +292,7 @@ function startWorld() {
   state.phone.hide();
   $("lock-overlay").classList.toggle("visible", !isTouch);
   startHudLoop();
+  connectMultiplayer(code);
 }
 
 function stopWorld() {
@@ -295,6 +300,8 @@ function stopWorld() {
     clearInterval(hudTimer);
     hudTimer = 0;
   }
+  state.net?.close();
+  state.net = null;
   state.phone?.hide();
   state.world?.stop();
   state.world = null;
@@ -342,6 +349,143 @@ function updateHud() {
     state.phone.update(position);
     updateWaypoint(position);
   }
+
+  if (state.world && state.net) {
+    // Tell the other players in this city where we are.
+    const position = state.world.getPlayerPosition();
+    state.net.sendMove(position.x, position.y, position.z, state.world.getPlayerYaw());
+  }
+}
+
+/* ----------------------------------------------------------- multiplayer */
+function connectMultiplayer(code) {
+  state.net?.close();
+  state.online = 1;
+  state.netStatus = "connecting";
+  updateOnlineHud();
+  initChat();
+
+  state.net = new CitySocket({
+    onStatus: (status) => {
+      state.netStatus = status;
+      updateOnlineHud();
+    },
+    onWelcome: (message) => {
+      state.online = message.online || 1;
+      state.world?.clearRemotePlayers();
+      for (const player of message.players || []) {
+        state.world?.addRemotePlayer({
+          username: player.username,
+          characterId: player.character_id,
+        });
+        state.world?.updateRemotePlayer(player);
+      }
+      updateOnlineHud();
+    },
+    onJoin: (message) => {
+      const player = message.player || {};
+      state.online = message.online || state.online;
+      state.world?.addRemotePlayer({
+        username: player.username,
+        characterId: player.character_id,
+      });
+      state.world?.updateRemotePlayer(player);
+      updateOnlineHud();
+      if (player.username) {
+        addChatLine({ system: true, text: `${player.username} joined the city` });
+      }
+    },
+    onLeave: (message) => {
+      state.online = message.online || 1;
+      state.world?.removeRemotePlayer(message.username);
+      updateOnlineHud();
+      if (message.username) {
+        addChatLine({ system: true, text: `${message.username} left the city` });
+      }
+    },
+    onMove: (message) => {
+      state.world?.updateRemotePlayer(message.player || {});
+    },
+    onChat: (message) => {
+      addChatLine({ username: message.username, text: message.text });
+    },
+  });
+
+  state.net.connect(code);
+}
+
+function updateOnlineHud() {
+  const element = $("hud-net");
+  if (!element) return;
+  if (state.netStatus === "online") {
+    element.textContent = `${state.online} online`;
+  } else if (state.netStatus === "connecting") {
+    element.textContent = "connecting…";
+  } else if (state.netStatus === "reconnecting") {
+    element.textContent = "reconnecting…";
+  } else if (state.netStatus === "unauthorized") {
+    element.textContent = "signed out";
+  } else {
+    element.textContent = "offline";
+  }
+}
+
+// Chat text is inserted with textContent, never innerHTML, so a player cannot
+// inject HTML into everyone else's screen.
+function addChatLine({ username, text, system } = {}) {
+  const log = $("chat-log");
+  if (!log) return;
+
+  const line = document.createElement("div");
+  line.className = system ? "chat-line system" : "chat-line";
+  if (system) {
+    line.textContent = text;
+  } else {
+    const who = document.createElement("strong");
+    who.textContent = `${username}: `;
+    line.append(who, document.createTextNode(text));
+  }
+
+  log.appendChild(line);
+  while (log.children.length > 6) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+let chatWired = false;
+function initChat() {
+  if (chatWired) return;
+  chatWired = true;
+
+  $("chat-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = $("chat-input");
+    const text = input.value;
+    input.value = "";
+    input.blur();
+    if (!text.trim()) return;
+    if (!state.net || !state.net.sendChat(text)) {
+      addChatLine({ system: true, text: "Not connected — message not sent." });
+    }
+  });
+
+  $("chat-input").addEventListener("click", () => document.exitPointerLock?.());
+  $("chat-input").addEventListener("keydown", (event) => {
+    if (event.code === "Escape") {
+      event.stopPropagation();
+      $("chat-input").blur();
+    }
+  });
+
+  // Pressing T opens chat without leaving the 3D world.
+  document.addEventListener("keydown", (event) => {
+    if (event.code !== "KeyT" || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (!$("screen-world").classList.contains("active")) return;
+    const input = $("chat-input");
+    if (document.activeElement === input) return;
+    event.preventDefault();
+    document.exitPointerLock?.();
+    input.focus();
+  });
 }
 
 function updateWaypoint(position) {
