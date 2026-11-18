@@ -172,18 +172,18 @@
         },
         "s4bjobs77x": {
             "password_hash": "fc3f54685feda4014e2749c0f3767af0$d27486cde132479420fbf3e96cc11c9cd2442347d16448d15aab4433140d3211",
-            "last_active": 1795036742.7429338,
+            "last_active": 1795036869.9999654,
             "current_room": "GLOBAL_HUB",
             "room_profiles": {
                 "GLOBAL_HUB": {
                     "preset": "egmore",
-                    "fampay": 500,
+                    "fampay": 835,
                     "bank": 0,
                     "bank_max": 5000,
                     "level": 1,
-                    "xp": 0,
+                    "xp": 30,
                     "job": "moderator",
-                    "last_work": 1795036558.679926,
+                    "last_work": 1795036882.7320862,
                     "work_reminder_sent": false,
                     "mailbox": [],
                     "crypto_units": 0.0,
@@ -336,7 +336,8 @@
                     },
                     "payment_history": [],
                     "bank_heist_cooldown": 0,
-                    "character_id": "professor"
+                    "character_id": "professor",
+                    "job_last_shift": 1795036882.7320862
                 }
             }
         }
