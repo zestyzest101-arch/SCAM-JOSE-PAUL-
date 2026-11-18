@@ -53,7 +53,12 @@ def _write_save(tmp_path):
     return json_path
 
 
-def test_schema_is_created_when_no_save_exists(tmp_path):
+def test_schema_is_created_when_no_save_exists(tmp_path, monkeypatch):
+    # Point the search at an empty folder: the repository's own save file must
+    # not decide whether this test passes.
+    monkeypatch.setattr(
+        migrate, "JSON_CANDIDATES", (tmp_path / "no_save_here.json",)
+    )
     db_path = tmp_path / "game.db"
     stats = migrate.migrate(json_path=None, db_path=db_path, backup_dir=tmp_path / "backups")
 
