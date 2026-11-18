@@ -348,6 +348,23 @@ $("btn-phone").addEventListener("click", () => {
   state.phone.toggle(state.layout, state.world.getPlayerPosition());
 });
 
+// Phone shortcuts: the same panels the world prompts open, so mobile players
+// never have to walk to the job board or the casino.
+const phoneJobs = $("phone-jobs");
+if (phoneJobs) {
+  phoneJobs.addEventListener("click", () => {
+    state.phone?.hide();
+    openJobs();
+  });
+}
+const phoneCasino = $("phone-casino");
+if (phoneCasino) {
+  phoneCasino.addEventListener("click", () => {
+    state.phone?.hide();
+    openCasino();
+  });
+}
+
 $("btn-leave").addEventListener("click", async () => {
   stopWorld();
   await openLobby();
