@@ -322,13 +322,25 @@ function initPhone() {
   });
 }
 
-$("btn-heist").addEventListener("click", () => {
+function requestHeist() {
   if (!state.world) return;
   if (!state.net || !state.net.sendHeist()) {
     addChatLine({ system: true, text: "Not connected - the crew cannot be called." });
     return;
   }
   addChatLine({ system: true, text: "Calling the crew... the bank is on notice." });
+}
+
+$("btn-heist").addEventListener("click", requestHeist);
+
+// Pointer lock hides the cursor, so a key works where a button click cannot.
+window.addEventListener("keydown", (event) => {
+  if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+  const tag = (event.target && event.target.tagName ? event.target.tagName : "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+  if (event.key.toLowerCase() !== "h") return;
+  if (!$("screen-world").classList.contains("active")) return;
+  requestHeist();
 });
 
 $("btn-phone").addEventListener("click", () => {
