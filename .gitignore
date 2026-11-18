@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# Player data — NEVER commit this.
+# The save file contains password hashes and every player's progress.
+# Hosting is ephemeral, so these files must also never be treated as a backup.
+# ---------------------------------------------------------------------------
+data/
+*.json.bak
+
+# Local SQLite databases (created by db/migrate.py)
+*.db
+*.db-wal
+*.db-shm
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ---------------------------------------------------------------------------
+# Virtual environments
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+env/
+
+# ---------------------------------------------------------------------------
+# OS noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
