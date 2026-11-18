@@ -1006,6 +1006,15 @@ async function applyHouse(patch) {
 
 const interactPromptEl = $("interact-prompt");
 if (interactPromptEl) interactPromptEl.addEventListener("click", interact);
+
+// The "Click to play" card is the only clickable part of the lock overlay, so it
+// must actually start mouse look (the overlay itself ignores pointer events).
+const lockCard = document.querySelector("#lock-overlay .lock-card");
+if (lockCard) {
+  lockCard.addEventListener("click", () => {
+    if (state.world && state.world.controls) state.world.controls.requestLock();
+  });
+}
 const bagButton = $("btn-bag");
 if (bagButton) bagButton.addEventListener("click", openInventory);
 const shopClose = $("shop-close");
