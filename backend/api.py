@@ -13,7 +13,7 @@ Auth model: POST /api/login returns a signed token. Send it back as
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import realtime, store
+from . import realtime, shop, store
 
 app = FastAPI(title="SCAM JOSE PAUL API", version="1.0.0")
 
@@ -230,6 +230,81 @@ def city_detail(code: str) -> dict:
 # Registered before the static mount below, for the same reason the /api
 # routes are: a mount on "/" would otherwise swallow /ws/city.
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Stage 4a: shop, bag and the starter house
+# --------------------------------------------------------------------------
+class ShopBuy(BaseModel):
+    """Body for POST /api/shop/buy - one purchase."""
+
+    item_id: str = Field(..., min_length=1, max_length=40)
+
+
+class HouseUpdate(BaseModel):
+    """Body for POST /api/house - repaint and/or re-place furniture."""
+
+    wall: Optional[str] = Field(default=None, max_length=30)
+    floor: Optional[str] = Field(default=None, max_length=30)
+    furniture: Optional[List[str]] = Field(default=None)
+
+
+def _player(username: str):
+    """Signed-in player's save data, account row and room profile, or 401."""
+    data = store.load()
+    account = store.account_for(data, username)
+    if account is None:
+        raise HTTPException(status_code=401, detail="Account no longer exists.")
+    return data, account, store.profile_for(account)
+
+
+@app.get("/api/shop")
+def shop_catalog(username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    return shop.catalog(profile)
+
+
+@app.post("/api/shop/buy")
+def shop_buy(body: ShopBuy, username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    try:
+        purchase = shop.buy(profile, body.item_id)
+    except shop.ShopError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    store.save(data)
+    return {
+        "username": username,
+        "purchase": purchase,
+        "account": store.summary(username, account, profile),
+    }
+
+
+@app.get("/api/inventory")
+def inventory(username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    return {"username": username, "inventory": shop.inventory_view(profile)}
+
+
+@app.get("/api/house")
+def house(username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    return {"username": username, "house": shop.house_view(profile)}
+
+
+@app.post("/api/house")
+def house_update(body: HouseUpdate, username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    payload = {
+        "wall": body.wall,
+        "floor": body.floor,
+        "furniture": body.furniture,
+    }
+    try:
+        view = shop.update_house(profile, payload)
+    except shop.ShopError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    store.save(data)
+    return {"username": username, "house": view}
+
+
 app.include_router(realtime.router)
 
 

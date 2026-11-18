@@ -52,6 +52,12 @@ export class PlayerControls {
     this._applyCamera();
   }
 
+  /** Swap the collision world, e.g. from the city into a house interior. */
+  setWorld(colliders = [], bounds = 110) {
+    this.colliders = colliders;
+    this.bounds = bounds;
+  }
+
   get locked() {
     return document.pointerLockElement === this.dom;
   }

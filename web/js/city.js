@@ -208,6 +208,50 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
     yaw: Math.PI,
   };
 
+  // Points of interest the player can use (E on a keyboard, tap on mobile).
+  const doorOf = (building, offset = 1.6) => ({
+    x: building.x,
+    z: building.z + building.d / 2 + offset,
+  });
+  const spawnDistance = (building) =>
+    (building.x - spawn.x) * (building.x - spawn.x) +
+    (building.z - spawn.z) * (building.z - spawn.z);
+  const nearestShop = buildings
+    .filter((building) => building.kind === "shop")
+    .sort((a, b) => spawnDistance(a) - spawnDistance(b))[0];
+
+  const houseDoor = doorOf(houseCenter);
+  const pois = [
+    {
+      id: "house",
+      kind: "house",
+      label: "Enter your house",
+      x: houseDoor.x,
+      z: houseDoor.z,
+      radius: 4.6,
+    },
+  ];
+  if (nearestShop) {
+    const shopDoor = doorOf(nearestShop, 2.2);
+    pois.push({
+      id: "shop",
+      kind: "shop",
+      label: "Shop for furniture",
+      x: shopDoor.x,
+      z: shopDoor.z,
+      radius: 4.6,
+    });
+  }
+  const casinoDoor = doorOf(casinoCenter, 2.6);
+  pois.push({
+    id: "casino",
+    kind: "casino",
+    label: "Casino",
+    x: casinoDoor.x,
+    z: casinoDoor.z,
+    radius: 5,
+  });
+
   return {
     preset,
     code,
@@ -225,6 +269,7 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
     casino: casinoCenter,
     house: houseCenter,
     spawn,
+    pois,
     colliders,
     palette,
     trimColor: trim,
