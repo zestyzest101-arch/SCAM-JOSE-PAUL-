@@ -3,4 +3,6 @@
 #     pip install -r requirements.txt -r requirements-dev.txt
 # Kept free of "-r" includes so dependency security scans can resolve every
 # package in this file.
-pytest==8.3.5
+# 9.0.3 is the first release without PYSEC-2026-1845 (vulnerable tmpdir
+# handling). The 18-test suite was run on this exact version before pinning it.
+pytest==9.0.3
