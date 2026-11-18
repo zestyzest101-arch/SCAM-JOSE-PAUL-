@@ -758,9 +758,8 @@ async function interact() {
   if (!poi) return;
   if (poi.kind === "house") await enterHouse();
   else if (poi.kind === "shop") await openShop();
-  else if (poi.kind === "casino") {
-    addChatLine({ system: true, text: "The casino tables open in the next stage." });
-  }
+  else if (poi.kind === "jobs") await openJobs();
+  else if (poi.kind === "casino") await openCasino();
 }
 
 async function enterHouse() {
@@ -801,6 +800,194 @@ function closePanels() {
   document.body.classList.remove("panel-open");
   if (state.world && state.world.controls) state.world.controls.setEnabled(true);
   updateInteractionPrompt();
+}
+
+// ---------------------------------------------------------------------------
+// Stage 4b: the job board and the casino
+// ---------------------------------------------------------------------------
+async function openJobs() {
+  try {
+    renderJobs((await api.jobs()).jobs);
+    openPanel("panel-jobs");
+  } catch (error) {
+    addChatLine({ system: true, text: error.message });
+  }
+}
+
+function setJobsError(message) {
+  const box = $("jobs-error");
+  if (box) box.textContent = message || "";
+}
+
+function renderJobs(view) {
+  const list = $("jobs-list");
+  if (!list) return;
+  setJobsError("");
+
+  const status = $("jobs-status");
+  if (status) {
+    const cooldown = view.can_work
+      ? "ready for a shift"
+      : `next shift in ${Math.ceil(view.cooldown_remaining)}s`;
+    const cash = Number(view.fampay).toLocaleString("en-IN");
+    status.textContent = `${view.job_name} · Level ${view.level} · ₹${cash} cash · ${cooldown}`;
+  }
+
+  const workButton = $("jobs-work");
+  if (workButton) {
+    workButton.disabled = !view.can_work;
+    workButton.textContent = view.can_work
+      ? "Work a shift"
+      : `Next shift in ${Math.ceil(view.cooldown_remaining)}s`;
+  }
+
+  list.innerHTML = "";
+  for (const job of view.jobs) {
+    const row = document.createElement("div");
+    row.className = "shop-row";
+
+    const name = document.createElement("div");
+    name.className = "shop-name";
+    name.textContent = job.active ? `${job.name} (your job)` : job.name;
+
+    const desc = document.createElement("div");
+    desc.className = "shop-desc";
+    desc.textContent = job.desc || "";
+
+    const meta = document.createElement("div");
+    meta.className = "shop-meta";
+    const pay = document.createElement("span");
+    pay.textContent = `₹${Number(job.pay_min).toLocaleString("en-IN")}–₹${Number(job.pay_max).toLocaleString("en-IN")} per shift · Level ${job.req_level}`;
+    meta.appendChild(pay);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pill";
+    button.textContent = job.active ? "Current" : job.locked ? `Level ${job.req_level}` : "Apply";
+    button.disabled = Boolean(job.active || job.locked);
+    if (!button.disabled) button.addEventListener("click", () => acceptJob(job.id));
+    meta.appendChild(button);
+
+    row.append(name, desc, meta);
+    list.appendChild(row);
+  }
+}
+
+async function acceptJob(jobId) {
+  try {
+    const data = await api.acceptJob(jobId);
+    renderJobs(data.jobs);
+    addChatLine({ system: true, text: `You are hired as a ${data.jobs.job_name}.` });
+  } catch (error) {
+    setJobsError(error.message);
+  }
+}
+
+async function workShift() {
+  const button = $("jobs-work");
+  if (button) button.disabled = true;
+  try {
+    const shift = (await api.workShift()).shift;
+    const cash = Number(shift.payout).toLocaleString("en-IN");
+    const bonus = shift.seniority_bonus
+      ? ` (₹${Number(shift.seniority_bonus).toLocaleString("en-IN")} seniority bonus)`
+      : "";
+    const levelUp = shift.leveled_up ? ` Level up - you are now level ${shift.level}.` : "";
+    addChatLine({
+      system: true,
+      text: `${shift.job_name} shift done: +₹${cash}${bonus}.${levelUp}`,
+    });
+    renderJobs((await api.jobs()).jobs);
+  } catch (error) {
+    // Refresh first so renderJobs() cannot wipe the reason it was refused.
+    const current = await api.jobs().catch(() => null);
+    if (current) renderJobs(current.jobs);
+    setJobsError(error.message);
+  }
+}
+
+async function openCasino() {
+  try {
+    renderCasino((await api.casino()).table);
+    openPanel("panel-casino");
+  } catch (error) {
+    addChatLine({ system: true, text: error.message });
+  }
+}
+
+function setCasinoError(message) {
+  const box = $("casino-error");
+  if (box) box.textContent = message || "";
+}
+
+function renderCasino(table) {
+  const list = $("casino-games");
+  if (!list) return;
+
+  const balance = $("casino-balance");
+  if (balance) {
+    const cash = Number(table.fampay).toLocaleString("en-IN");
+    const net = Number(table.stats.net).toLocaleString("en-IN");
+    balance.textContent = `Cash ₹${cash} · ${table.stats.played} rounds · net ₹${net}`;
+  }
+
+  list.innerHTML = "";
+  for (const game of table.games) {
+    const row = document.createElement("div");
+    row.className = "shop-row";
+
+    const name = document.createElement("div");
+    name.className = "shop-name";
+    name.textContent = game.name;
+
+    const desc = document.createElement("div");
+    desc.className = "shop-desc";
+    desc.textContent = `${game.desc} Limits ₹${table.min_bet}–₹${table.max_bet}.`;
+
+    const meta = document.createElement("div");
+    meta.className = "shop-meta";
+
+    const bet = document.createElement("input");
+    bet.type = "number";
+    bet.className = "casino-bet";
+    bet.min = String(table.min_bet);
+    bet.max = String(table.max_bet);
+    bet.step = "50";
+    bet.value = String(Math.min(table.max_bet, Math.max(table.min_bet, 100)));
+    bet.setAttribute("aria-label", `${game.name} bet`);
+    meta.appendChild(bet);
+
+    const choices = game.choices && game.choices.length ? game.choices : [null];
+    for (const choice of choices) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "pill";
+      button.textContent = choice || "Spin";
+      button.addEventListener("click", () => playCasino(game.id, Number(bet.value), choice));
+      meta.appendChild(button);
+    }
+
+    row.append(name, desc, meta);
+    list.appendChild(row);
+  }
+}
+
+async function playCasino(game, bet, choice) {
+  setCasinoError("");
+  try {
+    const round = (await api.playCasino(game, bet, choice)).round;
+    const result = $("casino-result");
+    if (result) {
+      const cash = Number(round.fampay).toLocaleString("en-IN");
+      const swing = round.net >= 0
+        ? `won ₹${Number(round.net).toLocaleString("en-IN")}`
+        : `lost ₹${Number(-round.net).toLocaleString("en-IN")}`;
+      result.textContent = `${round.message} You ${swing}. Cash ₹${cash}.`;
+    }
+    renderCasino((await api.casino()).table);
+  } catch (error) {
+    setCasinoError(error.message);
+  }
 }
 
 async function openShop() {
@@ -1028,6 +1215,12 @@ const shopClose = $("shop-close");
 if (shopClose) shopClose.addEventListener("click", closePanels);
 const inventoryClose = $("inventory-close");
 if (inventoryClose) inventoryClose.addEventListener("click", closePanels);
+const jobsClose = $("jobs-close");
+if (jobsClose) jobsClose.addEventListener("click", closePanels);
+const jobsWorkButton = $("jobs-work");
+if (jobsWorkButton) jobsWorkButton.addEventListener("click", workShift);
+const casinoClose = $("casino-close");
+if (casinoClose) casinoClose.addEventListener("click", closePanels);
 
 document.querySelectorAll(".panel-overlay").forEach((panel) => {
   panel.addEventListener("click", (event) => {

@@ -250,6 +250,19 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
       z: shopDoor.z,
       radius: 4.6,
     });
+    // The job board sits further out along the same shop frontage. At 8.2 the
+    // two prompts never overlap: from the board the shop is 6m away (outside
+    // its 4.6m radius), and from the shop door the board is 6m away (outside
+    // its 3.2m radius).
+    const boardSpot = doorOf(nearestShop, 8.2);
+    pois.push({
+      id: "jobs",
+      kind: "jobs",
+      label: "Job board",
+      x: boardSpot.x,
+      z: boardSpot.z,
+      radius: 3.2,
+    });
   }
   const casinoDoor = doorOf(casinoCenter, 2.6);
   pois.push({
