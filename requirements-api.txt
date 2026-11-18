@@ -2,3 +2,5 @@
 # The Streamlit prototype keeps using requirements.txt, which adds streamlit.
 fastapi==0.164.0
 uvicorn==0.54.0
+# uvicorn needs a WebSocket implementation for the multiplayer rooms (/ws/city).
+websockets==17.4

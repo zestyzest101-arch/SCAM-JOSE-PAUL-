@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import store
+from . import realtime, store
 
 app = FastAPI(title="SCAM JOSE PAUL API", version="1.0.0")
 
@@ -177,7 +177,11 @@ def select_character(body: CharacterChoice, username: str = Depends(current_user
 @app.get("/api/cities")
 def list_cities() -> dict:
     data = store.load()
-    return {"cities": store.public_cities(data)}
+    cities = store.public_cities(data)
+    for city in cities:
+        # Live players currently inside the city, from the WebSocket rooms.
+        city["online"] = realtime.hub.online_count(city["code"])
+    return {"cities": cities}
 
 
 @app.post("/api/cities", status_code=201)
@@ -218,6 +222,15 @@ def city_detail(code: str) -> dict:
     if city is None:
         raise HTTPException(status_code=404, detail="No city with that code.")
     return {"city": city}
+
+
+# --------------------------------------------------------------------------
+# Multiplayer WebSocket rooms
+#
+# Registered before the static mount below, for the same reason the /api
+# routes are: a mount on "/" would otherwise swallow /ws/city.
+# --------------------------------------------------------------------------
+app.include_router(realtime.router)
 
 
 # --------------------------------------------------------------------------
