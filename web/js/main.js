@@ -130,22 +130,39 @@ function renderCityList() {
 
 function renderPresetOptions() {
   const select = $("create-preset");
-  if (select.options.length) return;
-  for (const preset of state.presets) {
-    const option = document.createElement("option");
-    option.value = preset.id;
-    option.textContent = preset.name;
-    select.appendChild(option);
+  if (!select.options.length) {
+    for (const preset of state.presets) {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.name;
+      select.appendChild(option);
+    }
   }
+  // Make sure a real preset is selected, never an empty value.
+  if (!select.value && select.options.length) select.selectedIndex = 0;
 }
 
 $("create-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   $("lobby-error").textContent = "";
   const name = $("create-name").value.trim();
+  const submit = $("create-form").querySelector('button[type="submit"]');
+
+  // The lobby appears before the city/preset lists finish loading on slow
+  // connections. Wait for them so we never submit an empty map preset.
+  if (!state.presets.length) {
+    await refreshLobby();
+  }
+
   const preset = $("create-preset").value;
+  if (!preset) {
+    $("lobby-error").textContent =
+      "Map presets are still loading — please try again in a moment.";
+    return;
+  }
   const isPublic = $("create-public").checked;
 
+  submit.disabled = true;
   try {
     const result = await api.createCity(name, preset, isPublic);
     state.account.city = result.city.code;
