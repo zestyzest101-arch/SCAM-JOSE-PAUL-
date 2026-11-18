@@ -207,7 +207,12 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
     z: building.z + building.d / 2 + offset,
   });
 
-  const houseDoor = doorOf(houseCenter);
+  // `houseCenter` is only {x, z}; the door needs the real building depth, so
+  // use the house mesh itself (kind "house") and fall back to the block centre.
+  const houseBuilding = buildings.find((building) => building.kind === "house") || null;
+  const houseDoor = houseBuilding
+    ? doorOf(houseBuilding)
+    : { x: houseCenter.x, z: houseCenter.z + 7 };
 
   // Spawn on the doorstep of the starter house, looking at the door, so the
   // "Enter your house" prompt is already in reach when the world finishes
