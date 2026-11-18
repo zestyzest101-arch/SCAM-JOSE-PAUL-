@@ -202,10 +202,11 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
   }));
 
   // Spawn on the road just south of the starter house, looking north at it.
+  // The camera looks down -Z, so yaw 0 faces the house (yaw PI would face away).
   const spawn = {
     x: houseCenter.x,
     z: houseCenter.z + BLOCK / 2 + ROAD * 0.35,
-    yaw: Math.PI,
+    yaw: 0,
   };
 
   // Points of interest the player can use (E on a keyboard, tap on mobile).
