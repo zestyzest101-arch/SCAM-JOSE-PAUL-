@@ -33,14 +33,14 @@ export class Phone {
     this.layout = layout;
     this.player = { x: playerPosition.x, z: playerPosition.z };
     this.open = true;
-    this.root.classList.add("visible");
+    this.root.classList.add("open");
     if (this.cityEl) this.cityEl.textContent = `${layout.name} · ${layout.code}`;
     this.draw();
   }
 
   hide() {
     this.open = false;
-    this.root.classList.remove("visible");
+    this.root.classList.remove("open");
   }
 
   toggle(layout, playerPosition) {
