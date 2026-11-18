@@ -172,7 +172,7 @@
         },
         "s4bjobs77x": {
             "password_hash": "fc3f54685feda4014e2749c0f3767af0$d27486cde132479420fbf3e96cc11c9cd2442347d16448d15aab4433140d3211",
-            "last_active": 1795036669.3109572,
+            "last_active": 1795036695.0464609,
             "current_room": "GLOBAL_HUB",
             "room_profiles": {
                 "GLOBAL_HUB": {
@@ -335,7 +335,8 @@
                         "sent": 0
                     },
                     "payment_history": [],
-                    "bank_heist_cooldown": 0
+                    "bank_heist_cooldown": 0,
+                    "character_id": "professor"
                 }
             }
         }
