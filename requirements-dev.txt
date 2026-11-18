@@ -1,4 +1,6 @@
 # Development-only dependencies (tests). Not needed to run the game.
--r requirements.txt
-# Pinned exactly so dependency security scans can resolve and audit it.
+# Install both files together:
+#     pip install -r requirements.txt -r requirements-dev.txt
+# Kept free of "-r" includes so dependency security scans can resolve every
+# package in this file.
 pytest==8.3.5
