@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from . import store
+from . import heist, store
 
 router = APIRouter()
 
@@ -240,6 +240,24 @@ async def city_socket(websocket: WebSocket, token: str = "", city: str = "") -> 
                         "at": int(now),
                     },
                 )
+
+            elif kind == "heist":
+                # The whole room is the crew. The server rolls the outcome and
+                # moves the money FIRST, then everyone watches the same cutscene.
+                try:
+                    result = await asyncio.to_thread(
+                        heist.run_heist, code, list(room.players)
+                    )
+                except heist.HeistError as error:
+                    await _send(websocket, {"type": "heist_error", "message": str(error)})
+                    continue
+                except Exception:
+                    await _send(
+                        websocket,
+                        {"type": "heist_error", "message": "The heist could not start."},
+                    )
+                    continue
+                await _broadcast(room, {"type": "heist", "heist": result})
 
             elif kind == "ping":
                 await _send(websocket, {"type": "pong"})

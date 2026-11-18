@@ -145,6 +145,7 @@
         </div>
 
         <div class="world-buttons">
+          <button class="round" id="btn-heist" type="button">Bank</button>
           <button class="round" id="btn-phone" type="button">Phone</button>
           <button class="round" id="btn-leave" type="button">Leave</button>
         </div>
@@ -178,6 +179,22 @@
           </div>
         </div>
       </section>
+    </div>
+
+    <!-- heist cutscene: its own canvas so the city keeps running behind it -->
+    <div class="cutscene hidden" id="cutscene" aria-hidden="true">
+      <canvas id="cutscene-canvas"></canvas>
+      <div class="cutscene-flash" id="cutscene-flash"></div>
+      <div class="cutscene-bar top"></div>
+      <div class="cutscene-bar bottom"></div>
+      <div class="cutscene-head">
+        <div class="cutscene-labels">
+          <span class="cutscene-title" id="cutscene-title">BANK HEIST</span>
+          <span class="cutscene-result" id="cutscene-result"></span>
+        </div>
+        <button class="cutscene-skip" id="cutscene-skip" type="button">Skip</button>
+      </div>
+      <p class="cutscene-subtitle" id="cutscene-subtitle"></p>
     </div>
 
     <script type="module" src="/js/main.js"></script>

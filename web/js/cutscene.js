@@ -181,8 +181,7 @@ export class HeistCutscene {
     key.position.set(9, 15, 12);
     scene.add(key);
 
-    this.blastLight = new THREE.PointLight(0xffa martial, 0, 60);
-    this.blastLight = new THREE.PointLight(0xffa martial, 0, 60);
+    this.blastLight = new THREE.PointLight(0xffa64d, 0, 60);
     this.blastLight.position.set(0, 3.4, BANK_Z);
     scene.add(this.blastLight);
 

@@ -126,6 +126,11 @@ export class CitySocket {
     return this._send(this._pending);
   }
 
+  /** Ask the server to run a heist for everyone in this city. */
+  sendHeist() {
+    return this._send({ type: "heist" });
+  }
+
   sendChat(text) {
     const trimmed = (text || "").trim().slice(0, 160);
     if (!trimmed) return false;
