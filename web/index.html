@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#14101f" />
+    <title>SCAM JOSE PAUL 3D</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- ------------------------------------------------------- login -->
+      <section class="screen active" id="screen-auth">
+        <div class="panel auth-panel">
+          <h1 class="logo">SCAM<span>JOSE PAUL</span></h1>
+          <p class="subtitle">Chennai's most questionable open world</p>
+
+          <div class="tabs">
+            <button id="tab-login" class="tab active" type="button">Log in</button>
+            <button id="tab-register" class="tab" type="button">Create account</button>
+          </div>
+
+          <form id="auth-form">
+            <label for="auth-username">Username</label>
+            <input
+              id="auth-username"
+              name="username"
+              type="text"
+              required
+              minlength="3"
+              maxlength="20"
+              autocomplete="username"
+              placeholder="3-20 letters, numbers or _"
+            />
+
+            <label for="auth-password">Password</label>
+            <input
+              id="auth-password"
+              name="password"
+              type="password"
+              required
+              minlength="6"
+              maxlength="128"
+              autocomplete="current-password"
+              placeholder="At least 6 characters"
+            />
+
+            <button id="auth-submit" class="primary" type="submit">Log in</button>
+            <p class="error" id="auth-error" role="alert"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------- lobby -->
+      <section class="screen" id="screen-lobby">
+        <header class="topbar">
+          <div class="brand">SCAM JOSE PAUL 3D</div>
+          <div class="topbar-right">
+            <span class="chip">Signed in as <strong id="lobby-username">player</strong></span>
+            <button class="ghost" id="logout" type="button">Log out</button>
+          </div>
+        </header>
+
+        <div class="lobby-grid">
+          <div class="panel">
+            <h2>City lobby</h2>
+            <p class="muted">Current city: <strong id="lobby-city-name">GLOBAL_HUB</strong></p>
+            <div class="city-list" id="city-list"></div>
+            <div class="row">
+              <button class="primary" id="enter-city" type="button">Enter city</button>
+              <button class="ghost" id="change-character" type="button">Change character</button>
+            </div>
+            <p class="error" id="lobby-error" role="alert"></p>
+          </div>
+
+          <div class="panel">
+            <h2>Create a city</h2>
+            <form id="create-form">
+              <label for="create-name">City name</label>
+              <input id="create-name" type="text" required maxlength="40" placeholder="Anna Nagar Boys" />
+
+              <label for="create-preset">Map preset</label>
+              <select id="create-preset"></select>
+
+              <label class="checkbox">
+                <input id="create-public" type="checkbox" checked />
+                Public city (listed in the lobby)
+              </label>
+
+              <button class="primary" type="submit">Create city</button>
+            </form>
+
+            <hr />
+
+            <h2>Join with a code</h2>
+            <form id="join-form">
+              <label for="join-code">City code</label>
+              <input id="join-code" type="text" required maxlength="12" placeholder="ABC123" />
+              <button class="ghost" type="submit">Join city</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- --------------------------------------------------- character -->
+      <section class="screen" id="screen-character">
+        <header class="topbar">
+          <div class="brand">Choose your character</div>
+          <button class="ghost" id="character-back" type="button">Back to lobby</button>
+        </header>
+        <p class="muted center">
+          You only pick once — your choice is saved to your account, so you won't be asked again.
+        </p>
+        <div class="character-grid" id="character-grid"></div>
+        <p class="error center" id="character-error" role="alert"></p>
+      </section>
+
+      <!-- ------------------------------------------------------- world -->
+      <section class="screen" id="screen-world">
+        <div id="game"></div>
+        <div id="crosshair"></div>
+
+        <div class="hud hud-topleft">
+          <div class="hud-name" id="hud-name">PLAYER</div>
+          <div class="hud-line"><span id="hud-city">Egmore</span> · <span id="hud-code">GLOBAL_HUB</span></div>
+          <div class="hud-line">Level <strong id="hud-level">1</strong></div>
+        </div>
+
+        <div class="hud hud-topright">
+          <div class="hud-money">₹<span id="hud-money">0</span></div>
+          <div class="hud-line">Bank ₹<span id="hud-bank">0</span></div>
+        </div>
+
+        <div class="hud hud-waypoint" id="waypoint">
+          <div class="arrow" id="waypoint-arrow">▲</div>
+          <div class="distance" id="waypoint-distance">0 m</div>
+        </div>
+
+        <div class="hud hud-bottomleft" id="hint">
+          WASD move · Shift run · Space jump · Esc unlock mouse · P phone
+        </div>
+
+        <div class="world-buttons">
+          <button class="round" id="btn-phone" type="button">Phone</button>
+          <button class="round" id="btn-leave" type="button">Leave</button>
+        </div>
+
+        <div id="joystick"><div id="joystick-knob"></div></div>
+        <button class="round jump" id="btn-jump" type="button">Jump</button>
+
+        <div id="lock-overlay">
+          <div class="lock-card">
+            <h2>Click to play</h2>
+            <p>Mouse looks around · WASD moves · Esc unlocks the mouse</p>
+          </div>
+        </div>
+
+        <div id="phone">
+          <div class="phone-body">
+            <div class="phone-head">
+              <span>City phone</span>
+              <button class="ghost small" id="phone-close" type="button">Close</button>
+            </div>
+            <div class="phone-city" id="phone-city">Egmore</div>
+            <canvas id="phone-map" width="320" height="320"></canvas>
+            <button class="primary" id="phone-navigate" type="button">Navigate to Casino</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
