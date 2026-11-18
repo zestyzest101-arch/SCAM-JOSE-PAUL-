@@ -105,8 +105,26 @@ def test_buying_gear_uses_the_legacy_shop_items(client):
     token = token_for(client)
     catalog = client.get("/api/shop", headers=auth(token)).json()
     gear_section = next(section for section in catalog["sections"] if section["id"] == "gear")
-    affordable = [item for item in gear_section["items"] if item["price"] <= catalog["fampay"]]
-    assert affordable, "the starting balance should afford at least one gear item"
+    gear = {item["id"]: item for item in gear_section["items"]}
+
+    # The legacy catalogue is surfaced unchanged: ids, names and prices.
+    assert gear["shield"]["name"] == "Shield"
+    assert gear["shield"]["price"] == 2500
+    assert gear["reviver"]["price"] == 1000000
+
+    # Gear is late-game priced, so a fresh player cannot afford it yet.
+    assert gear["shield"]["price"] > catalog["fampay"]
+    response = client.post("/api/shop/buy", json={"item_id": "shield"}, headers=auth(token))
+    assert response.status_code == 400
+
+
+def test_furniture_is_affordable_for_a_new_player(client):
+    """A starter must be able to decorate on day one, unlike the gear shop."""
+    token = token_for(client)
+    catalog = client.get("/api/shop", headers=auth(token)).json()
+    furniture = next(section for section in catalog["sections"] if section["id"] == "furniture")
+    affordable = [item for item in furniture["items"] if item["price"] <= catalog["fampay"]]
+    assert affordable, "the starting balance should afford at least one furniture item"
 
     cheapest = min(affordable, key=lambda item: item["price"])
     response = client.post("/api/shop/buy", json={"item_id": cheapest["id"]}, headers=auth(token))
@@ -131,8 +149,8 @@ def test_cash_is_not_spent_when_the_purchase_fails():
     profile = {"fampay": 100, "furniture": {}}
     with pytest.raises(shop.ShopError):
         shop.buy(profile, "sofa")
-    assert profile["fampay"] == 100
-    assert profile["furniture"]["sofa"] == 0
+    # A rejected purchase must leave the whole profile untouched.
+    assert profile == {"fampay": 100, "furniture": {}}
 
 
 # --------------------------------------------------------------------------
