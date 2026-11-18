@@ -2,3 +2,7 @@
 # Pinned to an exact version so security scans can resolve and audit packages.
 # 1.67.0 is the version the current Streamlit build was verified running on.
 streamlit==1.67.0
+
+# Stage 1 backend API (uvicorn is the server that runs backend/api.py).
+fastapi==0.164.0
+uvicorn==0.54.0
