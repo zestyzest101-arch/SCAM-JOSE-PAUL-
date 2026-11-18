@@ -1137,3 +1137,23 @@ body.touch #lock-overlay {
   color: #a9b0c9;
   font-size: 0.86rem;
 }
+
+.shop-meta {
+  grid-column: 1;
+}
+
+.shop-buy {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+.shop-error {
+  min-height: 1em;
+  font-size: 0.82rem;
+  color: #ff8a8a;
+}
+
+body.panel-open #interact-prompt {
+  opacity: 0;
+  pointer-events: none;
+}

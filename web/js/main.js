@@ -687,3 +687,357 @@ async function boot() {
 }
 
 boot();
+
+// ---------------------------------------------------------------------------
+// Stage 4a: world interaction (E / tap), shop, bag and the starter house
+// ---------------------------------------------------------------------------
+const TOUCH_DEVICE = window.matchMedia("(pointer: coarse)").matches;
+
+function worldPois() {
+  const layout = state.world && state.world.layout ? state.world.layout : null;
+  return layout && Array.isArray(layout.pois) ? layout.pois : [];
+}
+
+function housePoi() {
+  return worldPois().find((poi) => poi.id === "house") || null;
+}
+
+function activePanel() {
+  return document.querySelector(".panel-overlay.open");
+}
+
+function setPrompt(text) {
+  const prompt = $("interact-prompt");
+  const label = $("interact-label");
+  if (!prompt || !label) return;
+  if (!text) {
+    prompt.classList.remove("visible");
+    return;
+  }
+  label.textContent = text;
+  prompt.classList.add("visible");
+}
+
+function updateInteractionPrompt() {
+  if (!state.world || !state.world.running || activePanel()) {
+    setPrompt("");
+    return;
+  }
+  if (state.world.insideInterior) {
+    setPrompt("Leave your house");
+    return;
+  }
+  const position = state.world.getPlayerPosition();
+  let nearest = null;
+  let bestSq = Infinity;
+  for (const poi of worldPois()) {
+    const dx = poi.x - position.x;
+    const dz = poi.z - position.z;
+    const distanceSq = dx * dx + dz * dz;
+    if (distanceSq <= poi.radius * poi.radius && distanceSq < bestSq) {
+      nearest = poi;
+      bestSq = distanceSq;
+    }
+  }
+  state.nearPoi = nearest;
+  setPrompt(nearest ? nearest.label : "");
+}
+
+async function interact() {
+  if (!state.world || !state.world.running) return;
+  if (state.world.insideInterior) {
+    leaveHouse();
+    return;
+  }
+  updateInteractionPrompt();
+  const poi = state.nearPoi;
+  if (!poi) return;
+  if (poi.kind === "house") await enterHouse();
+  else if (poi.kind === "shop") await openShop();
+  else if (poi.kind === "casino") {
+    addChatLine({ system: true, text: "The casino tables open in the next stage." });
+  }
+}
+
+async function enterHouse() {
+  try {
+    const data = await api.house();
+    state.house = data.house;
+    if (!state.world.enterInterior(state.house)) return;
+    addChatLine({ system: true, text: "Home sweet home. Press I to decorate." });
+    updateInteractionPrompt();
+  } catch (error) {
+    addChatLine({ system: true, text: error.message });
+  }
+}
+
+function leaveHouse() {
+  if (!state.world || !state.world.insideInterior) return;
+  state.world.exitInterior(housePoi());
+  addChatLine({ system: true, text: "Back on the street." });
+  updateInteractionPrompt();
+}
+
+function openPanel(id) {
+  const panel = $(id);
+  if (!panel) return;
+  panel.classList.add("open");
+  document.body.classList.add("panel-open");
+  if (state.world && state.world.controls) state.world.controls.setEnabled(false);
+  const overlay = $("lock-overlay");
+  if (overlay) overlay.classList.remove("visible");
+  setPrompt("");
+}
+
+function closePanels() {
+  document.querySelectorAll(".panel-overlay.open").forEach((panel) => panel.classList.remove("open"));
+  document.body.classList.remove("panel-open");
+  if (state.world && state.world.controls) state.world.controls.setEnabled(true);
+  updateInteractionPrompt();
+}
+
+async function openShop() {
+  try {
+    renderShop(await api.shop());
+    openPanel("panel-shop");
+  } catch (error) {
+    addChatLine({ system: true, text: error.message });
+  }
+}
+
+function renderShop(data) {
+  const list = $("shop-list");
+  if (!list) return;
+  const balance = $("shop-balance");
+  if (balance) balance.textContent = `Cash ₹${Number(data.fampay).toLocaleString("en-IN")}`;
+  const errorBox = $("shop-error");
+  if (errorBox) errorBox.textContent = "";
+  list.innerHTML = "";
+
+  for (const section of data.sections) {
+    const title = document.createElement("div");
+    title.className = "shop-section-title";
+    title.textContent = section.title;
+    list.appendChild(title);
+
+    for (const item of section.items) {
+      const row = document.createElement("div");
+      row.className = "shop-row";
+
+      const name = document.createElement("div");
+      name.className = "shop-name";
+      name.textContent = item.name;
+
+      const desc = document.createElement("div");
+      desc.className = "shop-desc";
+      desc.textContent = item.desc || "";
+
+      const meta = document.createElement("div");
+      meta.className = "shop-meta";
+      const price = document.createElement("span");
+      price.textContent = `₹${Number(item.price).toLocaleString("en-IN")}`;
+      const owned = document.createElement("span");
+      owned.textContent = item.owned > 0 ? `owned ${item.owned}` : item.category;
+      meta.append(price, owned);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "pill shop-buy";
+      const affordable = item.price <= data.fampay;
+      button.textContent = affordable ? "Buy" : "Need cash";
+      button.disabled = !affordable;
+      button.addEventListener("click", () => buyItem(item.id));
+
+      row.append(name, desc, meta, button);
+      list.appendChild(row);
+    }
+  }
+}
+
+async function buyItem(itemId) {
+  const errorBox = $("shop-error");
+  if (errorBox) errorBox.textContent = "";
+  try {
+    const result = await api.buy(itemId);
+    if (result.account) state.account = result.account;
+    updateHud();
+    addChatLine({
+      system: true,
+      text: `Bought ${result.purchase.item.name} for ₹${Number(
+        result.purchase.item.price,
+      ).toLocaleString("en-IN")}.`,
+    });
+    renderShop(await api.shop());
+    if (state.world && state.world.insideInterior) await refreshHouseInterior();
+  } catch (error) {
+    if (errorBox) errorBox.textContent = error.message;
+  }
+}
+
+async function refreshHouseInterior() {
+  try {
+    const data = await api.house();
+    state.house = data.house;
+    if (state.world && state.world.insideInterior) state.world.enterInterior(state.house);
+  } catch (error) {
+    addChatLine({ system: true, text: error.message });
+  }
+}
+
+async function openInventory() {
+  try {
+    const [inventory, house] = await Promise.all([api.inventory(), api.house()]);
+    state.house = house.house;
+    renderInventory(inventory.inventory);
+    openPanel("panel-inventory");
+  } catch (error) {
+    addChatLine({ system: true, text: error.message });
+  }
+}
+
+function swatchButton(entry, selected, onPick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `swatch${selected ? " selected" : ""}`;
+  button.style.background = entry.color;
+  button.title = entry.name;
+  button.setAttribute("aria-label", entry.name);
+  button.addEventListener("click", onPick);
+  return button;
+}
+
+function renderInventory(data) {
+  const house = state.house || { walls: [], floors: [], furniture: [], wall: "", floor: "" };
+
+  const walls = $("house-walls");
+  if (walls) {
+    walls.innerHTML = "";
+    for (const entry of house.walls || []) {
+      walls.appendChild(
+        swatchButton(entry, entry.id === house.wall, () => applyHouse({ wall: entry.id })),
+      );
+    }
+  }
+
+  const floors = $("house-floors");
+  if (floors) {
+    floors.innerHTML = "";
+    for (const entry of house.floors || []) {
+      floors.appendChild(
+        swatchButton(entry, entry.id === house.floor, () => applyHouse({ floor: entry.id })),
+      );
+    }
+  }
+
+  const list = $("inventory-list");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (!data.items.length) {
+    const empty = document.createElement("div");
+    empty.className = "panel-empty";
+    empty.textContent = "Nothing yet. Visit the shop and buy something.";
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const item of data.items) {
+    const row = document.createElement("div");
+    row.className = "shop-row";
+
+    const name = document.createElement("div");
+    name.className = "shop-name";
+    name.textContent = `${item.name} ×${item.count}`;
+
+    const desc = document.createElement("div");
+    desc.className = "shop-desc";
+    desc.textContent = item.desc || "";
+
+    const meta = document.createElement("div");
+    meta.className = "shop-meta";
+    const value = document.createElement("span");
+    value.textContent = `worth ₹${Number(item.price * item.count).toLocaleString("en-IN")}`;
+    meta.appendChild(value);
+
+    row.append(name, desc, meta);
+
+    if (item.kind === "furniture") {
+      const placed = (house.furniture || []).includes(item.id);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `pill shop-buy${placed ? " active" : ""}`;
+      button.textContent = placed ? "Placed" : "Place";
+      button.addEventListener("click", () => toggleFurniture(item.id));
+      row.appendChild(button);
+    }
+
+    list.appendChild(row);
+  }
+}
+
+async function toggleFurniture(itemId) {
+  const house = state.house;
+  if (!house) return;
+  const current = house.furniture || [];
+  const next = current.includes(itemId)
+    ? current.filter((id) => id !== itemId)
+    : [...current, itemId];
+  await applyHouse({ furniture: next });
+}
+
+async function applyHouse(patch) {
+  const house = state.house || {};
+  const errorBox = $("shop-error");
+  if (errorBox) errorBox.textContent = "";
+  try {
+    const data = await api.saveHouse({
+      wall: patch.wall || house.wall,
+      floor: patch.floor || house.floor,
+      furniture: patch.furniture || house.furniture || [],
+    });
+    state.house = data.house;
+    if (state.world && state.world.insideInterior) state.world.enterInterior(state.house);
+    const inventory = await api.inventory();
+    renderInventory(inventory.inventory);
+  } catch (error) {
+    if (errorBox) errorBox.textContent = error.message;
+  }
+}
+
+const interactPromptEl = $("interact-prompt");
+if (interactPromptEl) interactPromptEl.addEventListener("click", interact);
+const bagButton = $("btn-bag");
+if (bagButton) bagButton.addEventListener("click", openInventory);
+const shopClose = $("shop-close");
+if (shopClose) shopClose.addEventListener("click", closePanels);
+const inventoryClose = $("inventory-close");
+if (inventoryClose) inventoryClose.addEventListener("click", closePanels);
+
+document.querySelectorAll(".panel-overlay").forEach((panel) => {
+  panel.addEventListener("click", (event) => {
+    if (event.target === panel) closePanels();
+  });
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+  const tag = (event.target && event.target.tagName ? event.target.tagName : "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+  const worldScreen = $("screen-world");
+  if (!worldScreen || !worldScreen.classList.contains("active")) return;
+
+  if (event.code === "KeyE") {
+    event.preventDefault();
+    interact();
+    return;
+  }
+  if (event.code === "KeyI") {
+    event.preventDefault();
+    if (activePanel()) closePanels();
+    else openInventory();
+    return;
+  }
+  if (event.code === "Escape" && activePanel()) closePanels();
+});
+
+setInterval(updateInteractionPrompt, 220);
