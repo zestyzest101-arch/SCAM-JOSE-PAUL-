@@ -166,6 +166,34 @@
         <div id="joystick"><div id="joystick-knob"></div></div>
         <button class="round jump" id="btn-jump" type="button">Jump</button>
 
+        <!-- Stage 4b: job board and casino panels -->
+        <div class="panel-overlay" id="panel-jobs">
+          <div class="panel-card" role="dialog" aria-label="Job board">
+            <div class="panel-head">
+              <h2>Job board</h2>
+              <button class="pill" id="jobs-close" type="button">Close</button>
+            </div>
+            <div class="hud-line" id="jobs-status">Loading the board...</div>
+            <div class="shop-error" id="jobs-error" role="alert"></div>
+            <button class="pill wide" id="jobs-work" type="button">Work a shift</button>
+            <div class="panel-scroll" id="jobs-list"></div>
+          </div>
+        </div>
+
+        <div class="panel-overlay" id="panel-casino">
+          <div class="panel-card" role="dialog" aria-label="Casino">
+            <div class="panel-head">
+              <h2>Casino</h2>
+              <button class="pill" id="casino-close" type="button">Close</button>
+            </div>
+            <div class="hud-line" id="casino-balance">Cash: loading...</div>
+            <div class="shop-error" id="casino-error" role="alert"></div>
+            <div class="panel-scroll" id="casino-games"></div>
+            <div class="shop-section-title">Result</div>
+            <div class="hud-line" id="casino-result">Pick a game to start.</div>
+          </div>
+        </div>
+
         <!-- Stage 4a: shop and bag/house panels -->
         <div class="panel-overlay" id="panel-shop">
           <div class="panel-card" role="dialog" aria-label="Shop">

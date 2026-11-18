@@ -70,4 +70,10 @@ export const api = {
   inventory: () => request("/api/inventory"),
   house: () => request("/api/house"),
   saveHouse: (house) => request("/api/house", { method: "POST", body: house }),
+  jobs: () => request("/api/jobs"),
+  acceptJob: (jobId) => request("/api/jobs/accept", { method: "POST", body: { job_id: jobId } }),
+  workShift: () => request("/api/jobs/work", { method: "POST" }),
+  casino: () => request("/api/casino"),
+  playCasino: (game, bet, choice) =>
+    request("/api/casino/play", { method: "POST", body: { game, bet, choice } }),
 };
