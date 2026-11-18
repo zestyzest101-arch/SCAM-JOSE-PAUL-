@@ -630,7 +630,9 @@ button:disabled {
   justify-content: center;
   background: rgba(6, 4, 12, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 20;
+  /* Above the interaction prompt (z-index 30) so phone buttons stay clickable
+     near points of interest, but below the heist cutscene (60). */
+  z-index: 55;
 }
 
 #phone.open {
