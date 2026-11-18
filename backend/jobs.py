@@ -9,9 +9,15 @@ FastAPI layer thin and lets the tests run without a server.
 Profile keys used (all already existed, nothing is renamed):
 
 * ``profile["job"]``        the job id the player currently holds
-* ``profile["last_work"]``  unix timestamp of the last finished shift
+* ``profile["job_last_shift"]``  unix timestamp of the last finished shift
 * ``profile["fampay"]``     cash on hand
 * ``profile["level"]`` / ``profile["xp"]`` / ``profile["bank_max"]``
+
+The cooldown uses its own ``job_last_shift`` key instead of the legacy
+``last_work`` field. The legacy save seeds ``last_work`` with the account
+creation time, which would otherwise lock a brand-new player out of their
+first shift for a full minute. ``last_work`` is still updated so the older
+Streamlit reminder keeps working.
 
 A shift pays a random amount inside the job's pay range, plus a small seniority
 bonus for every level above the job requirement, and grants XP that can level
@@ -70,7 +76,7 @@ def cooldown_remaining(profile: Dict[str, Any], now: Optional[float] = None) -> 
     """Seconds until the player can work again (0 when a shift is available)."""
     now = time.time() if now is None else now
     try:
-        last = float(profile.get("last_work") or 0)
+        last = float(profile.get("job_last_shift") or 0)
     except (TypeError, ValueError):
         last = 0.0
     return max(0.0, WORK_COOLDOWN_SECONDS - (now - last))
@@ -172,6 +178,8 @@ def work(
     payout = base + seniority
 
     profile["fampay"] = int(profile.get("fampay") or 0) + payout
+    profile["job_last_shift"] = now
+    # Kept in sync for the legacy Streamlit "you can work again" reminder.
     profile["last_work"] = now
     leveled_up = _add_xp(profile, BASE_SHIFT_XP + required * 5)
 

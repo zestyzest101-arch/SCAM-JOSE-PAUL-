@@ -49,6 +49,7 @@ def fresh_profile(**overrides):
         "xp": 0,
         "bank_max": 5000,
         "job": "moderator",
+        "job_last_shift": 0,
         "last_work": 0,
     }
     profile.update(overrides)
@@ -93,7 +94,7 @@ def test_jobs_are_sorted_cheapest_first_and_locked_by_level():
 
 
 def test_cooldown_blocks_a_second_shift():
-    profile = fresh_profile(last_work=1000.0)
+    profile = fresh_profile(job_last_shift=1000.0)
     view = jobs.catalog(profile, now=1010.0)
     assert view["can_work"] is False
     assert 0 < view["cooldown_remaining"] <= jobs.WORK_COOLDOWN_SECONDS
@@ -135,13 +136,13 @@ def test_a_shift_pays_inside_the_job_range_and_starts_the_cooldown():
     assert low <= shift["payout"] <= high
     assert shift["base_pay"] == high
     assert shift["fampay"] == 500 + shift["payout"]
-    assert profile["last_work"] == 5000.0
+    assert profile["job_last_shift"] == 5000.0
     assert shift["cooldown_remaining"] == jobs.WORK_COOLDOWN_SECONDS
 
 
 def test_seniority_adds_a_bonus_above_the_job_requirement():
     profile = fresh_profile(level=4)
-    shift = jobs.work(profile, now=1.0, rng=StubRng([300]))
+    shift = jobs.work(profile, now=10_000.0, rng=StubRng([300]))
     # Moderator requires level 1, so three extra levels pay 3 x 50.
     assert shift["seniority_bonus"] == 150
     assert shift["payout"] == 450
@@ -149,12 +150,12 @@ def test_seniority_adds_a_bonus_above_the_job_requirement():
 
 def test_shifts_grant_xp_and_can_level_the_player_up():
     profile = fresh_profile(xp=0)
-    shift = jobs.work(profile, now=1.0, rng=StubRng([300]))
+    shift = jobs.work(profile, now=10_000.0, rng=StubRng([300]))
     assert shift["xp"] > 0 or shift["leveled_up"] is True
 
     # Enough XP to cross the level-1 threshold (1 * 300).
     profile = fresh_profile(xp=295, fampay=0, bank_max=5000)
-    shift = jobs.work(profile, now=1.0, rng=StubRng([300]))
+    shift = jobs.work(profile, now=10_000.0, rng=StubRng([300]))
     assert shift["leveled_up"] is True
     assert profile["level"] == 2
     assert profile["bank_max"] == 7500
