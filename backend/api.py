@@ -19,6 +19,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -75,8 +76,12 @@ def current_user(authorization: Optional[str] = Header(default=None)) -> str:
 # --------------------------------------------------------------------------
 # Health / catalogue
 # --------------------------------------------------------------------------
-@app.get("/")
-def root() -> dict:
+@app.get("/", include_in_schema=False)
+def root():
+    """Serve the 3D client, or describe the API if it is not installed."""
+    index = WEB_DIR / "index.html"
+    if index.is_file():
+        return FileResponse(index)
     return {"service": "SCAM JOSE PAUL API", "docs": "/docs", "health": "/api/health"}
 
 
