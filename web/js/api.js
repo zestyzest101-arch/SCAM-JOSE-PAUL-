@@ -65,4 +65,9 @@ export const api = {
   joinCity: (code) => request("/api/cities/join", { method: "POST", body: { code } }),
   selectCharacter: (characterId) =>
     request("/api/character/select", { method: "POST", body: { character_id: characterId } }),
+  shop: () => request("/api/shop"),
+  buy: (itemId) => request("/api/shop/buy", { method: "POST", body: { item_id: itemId } }),
+  inventory: () => request("/api/inventory"),
+  house: () => request("/api/house"),
+  saveHouse: (house) => request("/api/house", { method: "POST", body: house }),
 };
