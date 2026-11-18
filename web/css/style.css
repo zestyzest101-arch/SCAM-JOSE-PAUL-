@@ -171,8 +171,24 @@ button:disabled {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.ghost.small {
-  padding: 6px 10px;
+/* Stage 4b: phone app shortcuts and casino bet inputs */
+.phone-apps {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.casino-bet {
+  width: 84px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 14, 20, 0.72);
+  color: inherit;
+  font: inherit;
+}
+
+.ghost.small {  padding: 6px 10px;
   font-size: 0.76rem;
 }
 
