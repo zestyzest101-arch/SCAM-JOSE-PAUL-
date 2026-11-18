@@ -123,6 +123,11 @@
         <div id="game"></div>
         <div id="crosshair"></div>
 
+        <button id="interact-prompt" type="button">
+          <span class="key">E</span>
+          <span id="interact-label">Interact</span>
+        </button>
+
         <div class="hud hud-topleft">
           <div class="hud-name" id="hud-name">PLAYER</div>
           <div class="hud-line"><span id="hud-city">Egmore</span> · <span id="hud-code">GLOBAL_HUB</span></div>
@@ -146,6 +151,7 @@
 
         <div class="world-buttons">
           <button class="round" id="btn-heist" type="button">Bank</button>
+          <button class="round" id="btn-bag" type="button">Bag</button>
           <button class="round" id="btn-phone" type="button">Phone</button>
           <button class="round" id="btn-leave" type="button">Leave</button>
         </div>
@@ -159,6 +165,34 @@
 
         <div id="joystick"><div id="joystick-knob"></div></div>
         <button class="round jump" id="btn-jump" type="button">Jump</button>
+
+        <!-- Stage 4a: shop and bag/house panels -->
+        <div class="panel-overlay" id="panel-shop">
+          <div class="panel-card" role="dialog" aria-label="Shop">
+            <div class="panel-head">
+              <h2>Shop</h2>
+              <button class="pill" id="shop-close" type="button">Close</button>
+            </div>
+            <div class="hud-line" id="shop-balance">Cash ₹0</div>
+            <div class="shop-error" id="shop-error" role="alert"></div>
+            <div class="panel-scroll" id="shop-list"></div>
+          </div>
+        </div>
+
+        <div class="panel-overlay" id="panel-inventory">
+          <div class="panel-card" role="dialog" aria-label="Bag and house">
+            <div class="panel-head">
+              <h2>Bag &amp; house</h2>
+              <button class="pill" id="inventory-close" type="button">Close</button>
+            </div>
+            <div class="shop-section-title">Wall paint</div>
+            <div class="swatches" id="house-walls"></div>
+            <div class="shop-section-title">Floor</div>
+            <div class="swatches" id="house-floors"></div>
+            <div class="shop-section-title">Your items</div>
+            <div class="panel-scroll" id="inventory-list"></div>
+          </div>
+        </div>
 
         <div id="lock-overlay">
           <div class="lock-card">
