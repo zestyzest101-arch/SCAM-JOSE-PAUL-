@@ -201,19 +201,23 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
     height: building.h,
   }));
 
-  // Spawn on the road just south of the starter house, looking north at it.
-  // The camera looks down -Z, so yaw 0 faces the house (yaw PI would face away).
-  const spawn = {
-    x: houseCenter.x,
-    z: houseCenter.z + BLOCK / 2 + ROAD * 0.35,
-    yaw: 0,
-  };
-
   // Points of interest the player can use (E on a keyboard, tap on mobile).
   const doorOf = (building, offset = 1.6) => ({
     x: building.x,
     z: building.z + building.d / 2 + offset,
   });
+
+  const houseDoor = doorOf(houseCenter);
+
+  // Spawn on the doorstep of the starter house, looking at the door, so the
+  // "Enter your house" prompt is already in reach when the world finishes
+  // loading (the flow is login → lobby → character → world → starter house).
+  // The camera looks down -Z, so yaw 0 faces the house (yaw PI would face away).
+  const spawn = {
+    x: houseDoor.x,
+    z: houseDoor.z + 3,
+    yaw: 0,
+  };
   const spawnDistance = (building) =>
     (building.x - spawn.x) * (building.x - spawn.x) +
     (building.z - spawn.z) * (building.z - spawn.z);
@@ -221,7 +225,6 @@ export function buildCity({ preset = "egmore", code = "GLOBAL_HUB", name = "City
     .filter((building) => building.kind === "shop")
     .sort((a, b) => spawnDistance(a) - spawnDistance(b))[0];
 
-  const houseDoor = doorOf(houseCenter);
   const pois = [
     {
       id: "house",
