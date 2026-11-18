@@ -1,3 +1,4 @@
 # Development-only dependencies (tests). Not needed to run the game.
 -r requirements.txt
-pytest>=8,<9
+# Pinned exactly so dependency security scans can resolve and audit it.
+pytest==8.3.5
