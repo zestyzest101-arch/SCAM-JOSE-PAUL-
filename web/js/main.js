@@ -718,14 +718,18 @@ function setPrompt(text) {
   prompt.classList.add("visible");
 }
 
+// Returns the POI the player can currently use (or null) so interact() acts on
+// the same target the on-screen prompt is describing.
 function updateInteractionPrompt() {
   if (!state.world || !state.world.running || activePanel()) {
+    state.nearPoi = null;
     setPrompt("");
-    return;
+    return null;
   }
   if (state.world.insideInterior) {
+    state.nearPoi = null;
     setPrompt("Leave your house");
-    return;
+    return null;
   }
   const position = state.world.getPlayerPosition();
   let nearest = null;
@@ -741,6 +745,7 @@ function updateInteractionPrompt() {
   }
   state.nearPoi = nearest;
   setPrompt(nearest ? nearest.label : "");
+  return nearest;
 }
 
 async function interact() {
@@ -749,8 +754,7 @@ async function interact() {
     leaveHouse();
     return;
   }
-  updateInteractionPrompt();
-  const poi = state.nearPoi;
+  const poi = updateInteractionPrompt() || state.nearPoi;
   if (!poi) return;
   if (poi.kind === "house") await enterHouse();
   else if (poi.kind === "shop") await openShop();
@@ -763,7 +767,10 @@ async function enterHouse() {
   try {
     const data = await api.house();
     state.house = data.house;
-    if (!state.world.enterInterior(state.house)) return;
+    if (!state.world.enterInterior(state.house)) {
+      addChatLine({ system: true, text: "Could not open your house. Try again in a moment." });
+      return;
+    }
     addChatLine({ system: true, text: "Home sweet home. Press I to decorate." });
     updateInteractionPrompt();
   } catch (error) {
