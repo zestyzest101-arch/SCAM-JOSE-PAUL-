@@ -132,6 +132,7 @@
         <div class="hud hud-topright">
           <div class="hud-money">₹<span id="hud-money">0</span></div>
           <div class="hud-line">Bank ₹<span id="hud-bank">0</span></div>
+          <div class="hud-line" id="hud-net">connecting…</div>
         </div>
 
         <div class="hud hud-waypoint" id="waypoint">
@@ -146,6 +147,13 @@
         <div class="world-buttons">
           <button class="round" id="btn-phone" type="button">Phone</button>
           <button class="round" id="btn-leave" type="button">Leave</button>
+        </div>
+
+        <div id="chat">
+          <div class="chat-log" id="chat-log"></div>
+          <form id="chat-form" autocomplete="off">
+            <input id="chat-input" type="text" maxlength="160" placeholder="Press T to chat" />
+          </form>
         </div>
 
         <div id="joystick"><div id="joystick-knob"></div></div>

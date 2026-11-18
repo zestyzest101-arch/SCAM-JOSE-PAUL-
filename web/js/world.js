@@ -102,6 +102,36 @@ function signTexture(text, background, foreground) {
   return texture;
 }
 
+const AVATAR_COLORS = ["#ff3d81", "#7b5cff", "#3ddc97", "#ffcc55", "#42a5f5", "#ef6c00"];
+
+function avatarColor(key) {
+  const text = String(key || "player");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) % 997;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+// Floating name tag above another player.
+function nameTexture(name) {
+  const key = `name|${name}`;
+  if (textureCache.has(key)) return textureCache.get(key);
+
+  const canvas = canvas2d(256, 64);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(8, 6, 14, 0.7)";
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 30px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(name).slice(0, 14), 128, 34);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textureCache.set(key, texture);
+  return texture;
+}
+
 export class World {
   constructor(container, { onLockChange = () => {}, onError = () => {} } = {}) {
     this.container = container;
@@ -115,6 +145,7 @@ export class World {
     this.running = false;
     this._raf = 0;
     this._clock = null;
+    this.remotes = new Map();
     this._resizeHandler = () => this._resize();
   }
 
@@ -410,6 +441,77 @@ export class World {
 
   getPlayerYaw() {
     return this.controls ? this.controls.yaw : 0;
+  }
+
+  // --------------------------------------------------------------- multiplayer
+  // Other players are simple stand-in figures with a name tag: enough to see
+  // and follow each other around the city until real character models exist.
+  addRemotePlayer({ username, characterId } = {}) {
+    if (!this.scene || !username || this.remotes.has(username)) return;
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.5, 1.25, 12),
+      new THREE.MeshLambertMaterial({ color: avatarColor(characterId || username) })
+    );
+    body.position.y = 0.95;
+    body.castShadow = true;
+    group.add(body);
+
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.34, 16, 12),
+      new THREE.MeshLambertMaterial({ color: "#f0c9a6" })
+    );
+    head.position.y = 1.85;
+    head.castShadow = true;
+    group.add(head);
+
+    const label = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: nameTexture(username), depthTest: false })
+    );
+    label.position.y = 2.55;
+    label.scale.set(3.4, 0.85, 1);
+    group.add(label);
+
+    this.scene.add(group);
+    this.remotes.set(username, { group, target: new THREE.Vector3(), yaw: 0 });
+  }
+
+  updateRemotePlayer({ username, x, y, z, yaw } = {}) {
+    const remote = this.remotes.get(username);
+    if (!remote) return;
+    // y is the sender's eye height; the figure stands on the ground.
+    remote.target.set(Number(x) || 0, 0, Number(z) || 0);
+    remote.yaw = Number(yaw) || 0;
+  }
+
+  removeRemotePlayer(username) {
+    const remote = this.remotes.get(username);
+    if (!remote || !this.scene) return;
+    this.scene.remove(remote.group);
+    remote.group.traverse((child) => {
+      child.geometry?.dispose?.();
+      if (child.material && child.material !== undefined) {
+        if (child.material.map && child.material.map !== nameTexture(username)) {
+          child.material.map.dispose?.();
+        }
+        child.material.dispose?.();
+      }
+    });
+    this.remotes.delete(username);
+  }
+
+  clearRemotePlayers() {
+    for (const username of [...this.remotes.keys()]) this.removeRemotePlayer(username);
+  }
+
+  _updateRemotes() {
+    for (const remote of this.remotes.values()) {
+      // Smooth the jump between network updates so movement looks natural.
+      remote.group.position.lerp(remote.target, 0.25);
+      remote.group.rotation.y = remote.yaw;
+    }
   }
 
   _resize() {
