@@ -1,0 +1,27 @@
+{
+  "users": {
+    "inspector": {
+      "password_hash": "c0eb137e1426153f61de10459b359296$0bdefec173f2ff5b456e2f4f33819584d2f6236e765c95558d2941d5bf0a30b5",
+      "last_active": 1795028104.849713,
+      "current_room": null,
+      "room_profiles": {}
+    }
+  },
+  "rooms": {
+    "GLOBAL_HUB": {
+      "host": "SYSTEM",
+      "name": "Global Hub Egmore",
+      "preset": "egmore",
+      "is_public": true,
+      "members": [],
+      "heist": {
+        "active": false,
+        "contributions": {}
+      },
+      "started": true,
+      "character_claims": {},
+      "chat_messages": [],
+      "created_at": 1795028104.8476079
+    }
+  }
+}
