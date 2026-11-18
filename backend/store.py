@@ -321,6 +321,11 @@ def create_city(
         "created_at": now(),
     }
     rooms[code] = room
+
+    creator = _username_of(data, account)
+    if creator and creator not in room["members"]:
+        room["members"].append(creator)
+
     return _city_view(code, room)
 
 
