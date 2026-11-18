@@ -4,6 +4,7 @@ import { buildCity } from "./city.js";
 import { World } from "./world.js";
 import { CitySocket } from "./net.js";
 import { Phone } from "./phone.js";
+import { HeistCutscene } from "./cutscene.js";
 
 const $ = (id) => document.getElementById(id);
 const isTouch =
@@ -303,6 +304,7 @@ function stopWorld() {
   state.net?.close();
   state.net = null;
   state.phone?.hide();
+  cutscene?.stop();
   state.world?.stop();
   state.world = null;
 }
@@ -320,6 +322,15 @@ function initPhone() {
   });
 }
 
+$("btn-heist").addEventListener("click", () => {
+  if (!state.world) return;
+  if (!state.net || !state.net.sendHeist()) {
+    addChatLine({ system: true, text: "Not connected - the crew cannot be called." });
+    return;
+  }
+  addChatLine({ system: true, text: "Calling the crew... the bank is on notice." });
+});
+
 $("btn-phone").addEventListener("click", () => {
   if (!state.phone || !state.layout || !state.world) return;
   state.phone.toggle(state.layout, state.world.getPlayerPosition());
@@ -329,6 +340,60 @@ $("btn-leave").addEventListener("click", async () => {
   stopWorld();
   await openLobby();
 });
+
+/* ---------------------------------------------------------------- heists */
+let cutscene = null;
+
+function initCutscene() {
+  if (cutscene) return cutscene;
+  cutscene = new HeistCutscene({
+    overlay: $("cutscene"),
+    canvas: $("cutscene-canvas"),
+    subtitle: $("cutscene-subtitle"),
+    title: $("cutscene-title"),
+    result: $("cutscene-result"),
+    flash: $("cutscene-flash"),
+    skip: $("cutscene-skip"),
+    onFinish: async (heist) => {
+      state.world?.controls?.setEnabled(true);
+      if (!isTouch) $("lock-overlay")?.classList.add("visible");
+      if (heist) {
+        addChatLine({
+          system: true,
+          text: heist.success
+            ? `Heist clean - the crew walked out with ${Number(heist.loot).toLocaleString()} each.`
+            : `Heist blown - ${Number(heist.fine).toLocaleString()} fine and ${heist.lockup_seconds}s in lockup.`,
+        });
+      }
+      await refreshAccount();
+    },
+  });
+  return cutscene;
+}
+
+async function refreshAccount() {
+  try {
+    const me = await api.me();
+    if (me && me.account) {
+      state.account = me.account;
+      updateHud();
+    }
+  } catch (error) {
+    // A stale HUD beats a broken screen; the next refresh corrects it.
+  }
+}
+
+function playHeist(heist) {
+  if (!heist || !state.world) return;
+  const player = initCutscene();
+  state.phone?.hide();
+  state.world.controls?.setEnabled(false);
+  $("lock-overlay")?.classList.remove("visible");
+  if (!player.play(heist)) {
+    state.world.controls?.setEnabled(true);
+    if (!isTouch) $("lock-overlay")?.classList.add("visible");
+  }
+}
 
 function startHudLoop() {
   if (hudTimer) clearInterval(hudTimer);
@@ -405,6 +470,15 @@ function connectMultiplayer(code) {
     },
     onMove: (message) => {
       state.world?.updateRemotePlayer(message.player || {});
+    },
+    onHeist: (message) => {
+      playHeist(message.heist);
+    },
+    onHeistError: (message) => {
+      addChatLine({
+        system: true,
+        text: message.message || "The heist could not start.",
+      });
     },
     onChat: (message) => {
       addChatLine({ username: message.username, text: message.text });
