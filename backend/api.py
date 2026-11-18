@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import realtime, shop, store
+from . import casino, jobs, realtime, shop, store
 
 app = FastAPI(title="SCAM JOSE PAUL API", version="1.0.0")
 
@@ -303,6 +303,80 @@ def house_update(body: HouseUpdate, username: str = Depends(current_user)) -> di
         raise HTTPException(status_code=400, detail=str(error)) from error
     store.save(data)
     return {"username": username, "house": view}
+
+
+# ---------------------------------------------------------------------------
+# Stage 4b: jobs and the casino
+# ---------------------------------------------------------------------------
+class JobChoice(BaseModel):
+    """Body for POST /api/jobs/accept - the career to take."""
+
+    job_id: str = Field(..., min_length=1, max_length=40)
+
+
+class CasinoBet(BaseModel):
+    """Body for POST /api/casino/play - one round at the tables."""
+
+    game: str = Field(..., min_length=1, max_length=20)
+    bet: int = Field(..., ge=1)
+    choice: Optional[str] = Field(default=None, max_length=20)
+
+
+@app.get("/api/jobs")
+def jobs_board(username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    return {"username": username, "jobs": jobs.catalog(profile)}
+
+
+@app.post("/api/jobs/accept")
+def jobs_accept(body: JobChoice, username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    try:
+        view = jobs.accept(profile, body.job_id)
+    except jobs.JobError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    store.save(data)
+    return {
+        "username": username,
+        "jobs": view,
+        "account": store.summary(username, account, profile),
+    }
+
+
+@app.post("/api/jobs/work")
+def jobs_work(username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    try:
+        shift = jobs.work(profile)
+    except jobs.JobError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    store.save(data)
+    return {
+        "username": username,
+        "shift": shift,
+        "account": store.summary(username, account, profile),
+    }
+
+
+@app.get("/api/casino")
+def casino_table(username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    return {"username": username, "table": casino.table(profile)}
+
+
+@app.post("/api/casino/play")
+def casino_play(body: CasinoBet, username: str = Depends(current_user)) -> dict:
+    data, account, profile = _player(username)
+    try:
+        round_view = casino.play(profile, body.game, body.bet, body.choice)
+    except casino.CasinoError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    store.save(data)
+    return {
+        "username": username,
+        "round": round_view,
+        "account": store.summary(username, account, profile),
+    }
 
 
 app.include_router(realtime.router)
