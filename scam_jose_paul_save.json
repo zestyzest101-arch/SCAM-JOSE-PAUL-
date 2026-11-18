@@ -172,12 +172,12 @@
         },
         "s4bjobs77x": {
             "password_hash": "fc3f54685feda4014e2749c0f3767af0$d27486cde132479420fbf3e96cc11c9cd2442347d16448d15aab4433140d3211",
-            "last_active": 1795036922.646402,
+            "last_active": 1795037075.1420412,
             "current_room": "GLOBAL_HUB",
             "room_profiles": {
                 "GLOBAL_HUB": {
                     "preset": "egmore",
-                    "fampay": 835,
+                    "fampay": 935,
                     "bank": 0,
                     "bank_max": 5000,
                     "level": 1,
@@ -337,7 +337,13 @@
                     "payment_history": [],
                     "bank_heist_cooldown": 0,
                     "character_id": "professor",
-                    "job_last_shift": 1795036882.7320862
+                    "job_last_shift": 1795036882.7320862,
+                    "casino": {
+                        "played": 1,
+                        "won": 1,
+                        "net": 100,
+                        "biggest_win": 100
+                    }
                 }
             }
         }
