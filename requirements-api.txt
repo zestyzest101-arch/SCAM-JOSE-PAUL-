@@ -1,0 +1,4 @@
+# Runtime dependencies for the deployed web build (FastAPI + the 3D client).
+# The Streamlit prototype keeps using requirements.txt, which adds streamlit.
+fastapi==0.164.0
+uvicorn==0.54.0

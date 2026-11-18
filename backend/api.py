@@ -15,8 +15,11 @@ from __future__ import annotations
 
 from typing import Optional
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import store
@@ -210,3 +213,21 @@ def city_detail(code: str) -> dict:
     if city is None:
         raise HTTPException(status_code=404, detail="No city with that code.")
     return {"city": city}
+
+
+# --------------------------------------------------------------------------
+# 3D client (web/) and character art (assets/)
+#
+# Mounted last on purpose: every /api route above is matched first, so the
+# client can never shadow the API. Both mounts are optional so the API still
+# starts if it is deployed without the static files.
+# --------------------------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parent.parent
+WEB_DIR = REPO_ROOT / "web"
+ASSETS_DIR = REPO_ROOT / "assets"
+
+if ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
+if WEB_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="client")
