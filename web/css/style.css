@@ -574,6 +574,10 @@ button:disabled {
   background: rgba(6, 4, 12, 0.55);
   backdrop-filter: blur(3px);
   cursor: pointer;
+  /* The overlay must never swallow clicks: the HUD (Bag, interact prompt)
+     stays usable while it is visible, and clicks reach the canvas so mouse
+     look can start. Only the card itself is an interactive target. */
+  pointer-events: none;
 }
 
 #lock-overlay.visible {
@@ -586,6 +590,8 @@ button:disabled {
   border-radius: var(--radius);
   background: rgba(23, 18, 38, 0.9);
   border: 1px solid var(--line);
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .lock-card h2 {
