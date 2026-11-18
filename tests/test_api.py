@@ -211,6 +211,8 @@ def test_public_city_list_includes_the_global_hub(client):
 
 def test_existing_save_data_is_preserved_by_api_writes(client):
     """A pre-existing player must still be there after new API activity."""
+    # Create the default save first, exactly as the game does on first launch.
+    game_core.load_all_data()
     saved = json.loads(client.save_path.read_text(encoding="utf-8"))
     saved["users"]["legacy_player"] = {
         "password_hash": game_core.hash_password("oldpassword"),

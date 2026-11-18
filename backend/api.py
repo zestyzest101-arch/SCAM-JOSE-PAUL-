@@ -174,7 +174,7 @@ def list_cities() -> dict:
 
 @app.post("/api/cities", status_code=201)
 def create_city(body: CityCreate, username: str = Depends(current_user)) -> dict:
-    if body.preset not in store.presets():
+    if body.preset not in store.preset_ids():
         raise HTTPException(status_code=400, detail="Unknown city preset.")
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="City name is required.")
